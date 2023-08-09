@@ -463,8 +463,10 @@ dependencies = [
  "actix",
  "actix-web",
  "actix-web-actors",
+ "bytestring",
  "serde",
  "serde_bytes",
+ "serde_json",
  "tokio",
 ]
 
