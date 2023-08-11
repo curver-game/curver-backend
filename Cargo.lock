@@ -464,6 +464,7 @@ dependencies = [
  "actix-web",
  "actix-web-actors",
  "bytestring",
+ "parking_lot",
  "serde",
  "serde_bytes",
  "serde_json",
