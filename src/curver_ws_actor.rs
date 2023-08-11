@@ -7,8 +7,6 @@ use crate::message::{CurverMessageToReceive, CurverMessageToSend, InternalMessag
 
 pub struct CurverWebSocketActor {
     pub id: Uuid,
-    pub room_id: Option<Uuid>,
-    pub room_message_transmitter: Option<Sender<CurverMessageToSend>>,
     pub internal_message_transmitter: Sender<InternalMessage>,
 }
 
