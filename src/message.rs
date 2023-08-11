@@ -2,8 +2,10 @@ use actix::Message;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::curver_ws_actor::CurverAddress;
+
 #[derive(Debug, PartialEq)]
-pub struct UuidSerde(Uuid);
+pub struct UuidSerde(pub Uuid);
 
 impl UuidSerde {
     pub fn get_uuid(&self) -> Uuid {
@@ -50,11 +52,9 @@ pub enum GameState {
 #[derive(Debug, Message, Serialize, Deserialize, PartialEq)]
 #[rtype(result = "()")]
 #[serde(tag = "type")]
-pub enum WebSocketMessage {
-    // These will be sent by the server
+pub enum CurverMessageToSend {
     #[serde(rename = "created-room")]
     CreatedRoom { room_id: UuidSerde },
-
     #[serde(rename = "joined-room-error")]
     JoinedRoomError { reason: String },
     #[serde(rename = "joined-room")]
@@ -71,8 +71,12 @@ pub enum WebSocketMessage {
     UserWon { user_id: UuidSerde },
     #[serde(rename = "user-eliminated")]
     UserEliminated { user_id: UuidSerde },
+}
 
-    // These will be sent by the client
+#[derive(Debug, Message, Serialize, Deserialize, PartialEq)]
+#[rtype(result = "()")]
+#[serde(tag = "type")]
+pub enum CurverMessageToReceive {
     #[serde(rename = "create-room")]
     CreateRoom,
     #[serde(rename = "join-room")]
@@ -83,6 +87,20 @@ pub enum WebSocketMessage {
     Rotate {
         angle_unit_vector_x: f32,
         angle_unit_vector_y: f32,
+    },
+}
+
+pub enum InternalMessage {
+    AddAddress {
+        address: CurverAddress,
+        user_id: Uuid,
+    },
+    RemoveAddress {
+        user_id: Uuid,
+    },
+    HandleMessage {
+        message: CurverMessageToReceive,
+        user_id: Uuid,
     },
 }
 
@@ -132,22 +150,22 @@ mod tests {
             angle_unit_vector_x: 3.0,
             angle_unit_vector_y: 4.0,
         };
-        let websocket_message = WebSocketMessage::Update {
+        let websocket_message = CurverMessageToSend::Update {
             client_state: vec![client_state],
         };
         let serialized = serde_json::to_string(&websocket_message).unwrap();
-        let deserialized: WebSocketMessage = serde_json::from_str(&serialized).unwrap();
+        let deserialized: CurverMessageToSend = serde_json::from_str(&serialized).unwrap();
         assert_eq!(websocket_message, deserialized);
     }
 
     #[test]
     fn test_serialize_deserialize_websocket_message_rotate() {
-        let websocket_message = WebSocketMessage::Rotate {
+        let websocket_message = CurverMessageToReceive::Rotate {
             angle_unit_vector_x: 1.0,
             angle_unit_vector_y: 2.0,
         };
         let serialized = serde_json::to_string(&websocket_message).unwrap();
-        let deserialized: WebSocketMessage = serde_json::from_str(&serialized).unwrap();
+        let deserialized: CurverMessageToReceive = serde_json::from_str(&serialized).unwrap();
         assert_eq!(websocket_message, deserialized);
     }
 }
