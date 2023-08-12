@@ -74,6 +74,8 @@ pub enum CurverMessageToReceive {
         angle_unit_vector_x: f32,
         angle_unit_vector_y: f32,
     },
+    #[serde(rename = "is-ready")]
+    IsReady { is_ready: bool },
 }
 
 pub struct ForwardedMessage {
@@ -104,6 +106,7 @@ mod tests {
             y: 2.0,
             angle_unit_vector_x: 3.0,
             angle_unit_vector_y: 4.0,
+            is_ready: false,
         };
         let serialized = serde_json::to_string(&client_state).unwrap();
         let deserialized: Player = serde_json::from_str(&serialized).unwrap();
@@ -127,6 +130,7 @@ mod tests {
             y: 2.0,
             angle_unit_vector_x: 3.0,
             angle_unit_vector_y: 4.0,
+            is_ready: false,
         };
         let websocket_message = CurverMessageToSend::Update {
             players: vec![players],

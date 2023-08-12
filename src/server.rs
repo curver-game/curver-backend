@@ -81,6 +81,17 @@ impl ServerHandler {
                             },
                         );
                     }
+
+                    CurverMessageToReceive::IsReady { is_ready } => {
+                        self.send_message_to_room_by_user_id(
+                            forwarded_message.user_id,
+                            ForwardedMessage {
+                                user_id: forwarded_message.user_id,
+                                address: forwarded_message.address.clone(),
+                                message: CurverMessageToReceive::IsReady { is_ready },
+                            },
+                        );
+                    }
                 }
             }
         }

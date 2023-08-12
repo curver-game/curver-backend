@@ -8,7 +8,7 @@ use crate::{
     constants::{MAP_HEIGHT, MAP_WIDTH, MS_PER_TICK},
     curver_ws_actor::CurverAddress,
     debug_ui::DebugUi,
-    game::{player::Player, Clients, Game, Players},
+    game::{player::Player, Clients, Game, GameState, Players},
     message::{CurverMessageToReceive, CurverMessageToSend, ForwardedMessage, UuidSerde},
 };
 
@@ -17,6 +17,8 @@ pub struct Room {
 
     clients: Arc<RwLock<Clients>>,
     players: Arc<RwLock<Players>>,
+
+    game_state: GameState,
 }
 
 impl Room {
@@ -28,33 +30,19 @@ impl Room {
             receiver,
             clients: clients.clone(),
             players: players.clone(),
+            game_state: GameState::Waiting,
         }
     }
 
     pub async fn message_handler(mut self) {
-        let mut game = Game::new(self.clients.clone(), self.players.clone());
-
-        tokio::spawn(async move {
-            let mut debug_ui = DebugUi::new();
-
-            let winner = loop {
-                if let Some(winner) = game.tick() {
-                    break winner;
-                }
-
-                debug_ui.draw_game(&game);
-
-                tokio::time::sleep(tokio::time::Duration::from_millis(MS_PER_TICK as u64)).await;
-            };
-
-            debug_ui.display_winner(&winner);
-        });
-
         loop {
             if let Some(forwarded_message) = self.receiver.recv().await {
                 match forwarded_message.message {
                     CurverMessageToReceive::JoinRoom { .. } => {
-                        self.join_room(forwarded_message.user_id, forwarded_message.address);
+                        self.join_room_and_notify_all(
+                            forwarded_message.user_id,
+                            forwarded_message.address,
+                        );
                     }
 
                     CurverMessageToReceive::LeaveRoom => {
@@ -63,6 +51,15 @@ impl Room {
                         if self.check_if_clients_empty() {
                             break;
                         }
+                    }
+
+                    CurverMessageToReceive::IsReady { is_ready } => {
+                        self.toggle_ready_for_user_and_notify_all(
+                            forwarded_message.user_id,
+                            is_ready,
+                        );
+
+                        self.spawn_game_if_ready_and_notify_all();
                     }
 
                     CurverMessageToReceive::Rotate {
@@ -84,8 +81,42 @@ impl Room {
         }
     }
 
+    // --- Game Logic ---
+    fn spawn_game_if_ready_and_notify_all(&mut self) {
+        if !self.check_if_ready_to_start() {
+            return;
+        }
+
+        self.spawn_game();
+        self.game_state = GameState::Started;
+
+        self.send_message_to_all(CurverMessageToSend::GameState {
+            current_state: GameState::Started,
+        })
+    }
+
+    fn spawn_game(&self) {
+        let mut game = Game::new(self.clients.clone(), self.players.clone());
+
+        tokio::spawn(async move {
+            let mut debug_ui = DebugUi::new();
+
+            let winner = loop {
+                if let Some(winner) = game.tick() {
+                    break winner;
+                }
+
+                debug_ui.draw_game(&game);
+
+                tokio::time::sleep(tokio::time::Duration::from_millis(MS_PER_TICK as u64)).await;
+            };
+
+            debug_ui.display_winner(&winner);
+        });
+    }
+
     // --- Message Handling ---
-    fn join_room(&mut self, user_id: Uuid, address: CurverAddress) {
+    fn join_room_and_notify_all(&mut self, user_id: Uuid, address: CurverAddress) {
         self.add_client(user_id, address);
 
         let random_angle = rand::random::<f32>() * 2.0 * std::f32::consts::PI;
@@ -96,9 +127,12 @@ impl Room {
             y: rand::random::<f32>() * MAP_HEIGHT,
             angle_unit_vector_x: random_angle.cos(),
             angle_unit_vector_y: random_angle.sin(),
+            is_ready: false,
         };
 
         self.players.write().insert(user_id, player);
+
+        self.send_update_to_all();
     }
 
     fn rotate_player(&mut self, user_id: Uuid, angle_unit_vector_x: f32, angle_unit_vector_y: f32) {
@@ -119,6 +153,14 @@ impl Room {
     }
 
     // --- Message Sending ---
+    fn send_update_to_all(&self) {
+        let update = CurverMessageToSend::Update {
+            players: self.players.read().values().cloned().collect(),
+        };
+
+        self.send_message_to_all(update);
+    }
+
     fn send_message_to_all(&self, message: CurverMessageToSend) {
         for address in self.clients.read().values() {
             address.do_send(message.clone());
@@ -135,6 +177,32 @@ impl Room {
     fn add_client(&mut self, user_id: Uuid, address: CurverAddress) {
         let mut clients_lock = self.clients.write();
         clients_lock.insert(user_id, address);
+    }
+
+    fn toggle_ready_for_user_and_notify_all(&mut self, user_id: Uuid, is_ready: bool) {
+        let mut players_lock = self.players.write();
+
+        if let Some(player) = players_lock.get_mut(&user_id) {
+            player.is_ready = is_ready;
+        }
+
+        self.send_update_to_all();
+    }
+
+    fn check_if_ready_to_start(&self) -> bool {
+        let players_lock = self.players.read();
+
+        if players_lock.len() < 2 {
+            return false;
+        }
+
+        for player in players_lock.values() {
+            if !player.is_ready {
+                return false;
+            }
+        }
+
+        true
     }
 
     fn remove_client(&mut self, user_id: Uuid) {

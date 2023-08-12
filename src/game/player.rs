@@ -13,6 +13,7 @@ pub struct Player {
     pub y: f32,
     pub angle_unit_vector_x: f32,
     pub angle_unit_vector_y: f32,
+    pub is_ready: bool,
 }
 
 impl Player {
@@ -22,6 +23,7 @@ impl Player {
         y: f32,
         angle_unit_vector_x: f32,
         angle_unit_vector_y: f32,
+        is_ready: bool,
     ) -> Player {
         Player {
             id: UuidSerde(id),
@@ -29,6 +31,7 @@ impl Player {
             y,
             angle_unit_vector_x,
             angle_unit_vector_y,
+            is_ready,
         }
     }
 

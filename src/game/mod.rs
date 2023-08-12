@@ -58,15 +58,7 @@ impl Game {
                 }
             }
 
-            if let Some(path) = self.paths.get_mut(&player.id.get_uuid()) {
-                path.push(Node(player.x, player.y));
-            } else {
-                let path = Path {
-                    nodes: vec![Node(player.x, player.y)],
-                };
-
-                self.paths.insert(player.id.get_uuid(), path);
-            }
+            self.add_players_location_to_path(player.id.get_uuid(), Node(player.x, player.y));
         }
 
         let mut players_lock = self.players.write();
@@ -78,8 +70,16 @@ impl Game {
         }
 
         if self.players.read().len() == 1 {
-            return Some(self.players.read().keys().next().cloned()?);
+            let winner = self.players.read().keys().next().cloned()?;
+
+            self.send_message_to_all(CurverMessageToSend::UserWon {
+                user_id: UuidSerde(winner),
+            });
+
+            return Some(winner);
         }
+
+        self.send_update_to_all();
 
         None
     }
@@ -109,7 +109,25 @@ impl Game {
         self.players.write().remove(&player_id);
     }
 
+    fn add_players_location_to_path(&mut self, player_id: Uuid, node: Node) {
+        if let Some(path) = self.paths.get_mut(&player_id) {
+            path.push(node);
+        } else {
+            let path = Path { nodes: vec![node] };
+
+            self.paths.insert(player_id, path);
+        }
+    }
+
     // --- Message Sending ---
+    fn send_update_to_all(&self) {
+        let update = CurverMessageToSend::Update {
+            players: self.players.read().values().cloned().collect(),
+        };
+
+        self.send_message_to_all(update);
+    }
+
     fn send_message_to_all(&self, message: CurverMessageToSend) {
         let clients_lock = self.clients.read();
         for client in clients_lock.values() {
