@@ -50,7 +50,7 @@ pub enum CurverMessageToSend {
     #[serde(rename = "leave-room-error")]
     LeaveRoomError { reason: String },
     #[serde(rename = "update")]
-    Update { client_state: Vec<Player> },
+    Update { players: Vec<Player> },
     #[serde(rename = "game-state")]
     GameState { current_state: GameState },
     #[serde(rename = "user-won")]
@@ -121,7 +121,7 @@ mod tests {
     #[test]
     fn test_serialize_deserialize_websocket_message() {
         let uuid = Uuid::new_v4();
-        let client_state = Player {
+        let players = Player {
             id: UuidSerde(uuid),
             x: 1.0,
             y: 2.0,
@@ -129,7 +129,7 @@ mod tests {
             angle_unit_vector_y: 4.0,
         };
         let websocket_message = CurverMessageToSend::Update {
-            client_state: vec![client_state],
+            players: vec![players],
         };
         let serialized = serde_json::to_string(&websocket_message).unwrap();
         let deserialized: CurverMessageToSend = serde_json::from_str(&serialized).unwrap();
