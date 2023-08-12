@@ -41,7 +41,7 @@ impl ServerHandler {
                     }
 
                     CurverMessageToReceive::JoinRoom { room_id } => {
-                        self.join_room(
+                        self.join_room_and_forward_message(
                             room_id.get_uuid(),
                             forwarded_message.user_id,
                             forwarded_message.address.clone(),
@@ -55,7 +55,7 @@ impl ServerHandler {
                     }
 
                     CurverMessageToReceive::LeaveRoom => {
-                        self.leave_room(
+                        self.leave_room_and_forward_message(
                             forwarded_message.user_id,
                             forwarded_message.address.clone(),
                         );
@@ -86,27 +86,35 @@ impl ServerHandler {
         }
     }
 
+    // --- Room Handling ---
     fn create_room(&mut self) -> Uuid {
-        let id = Uuid::new_v4();
+        let room_id = Uuid::new_v4();
         let (room_message_transmitter, room_message_receiver) = mpsc::channel(100);
-        let room = Room::new(id, room_message_receiver);
         let room_message_transmitters_clone = self.room_message_transmitters.clone();
+
+        let room = Room::new(room_id, room_message_receiver);
 
         tokio::spawn(async move {
             room.message_handler().await;
-            print!("Room {} dropped", id);
+
+            print!("Room {} dropped", room_id);
             let mut transmitter_lock = room_message_transmitters_clone.write();
-            transmitter_lock.remove(&id);
+            transmitter_lock.remove(&room_id);
         });
 
-        self.add_room_transmitter(id, room_message_transmitter);
+        self.add_room_transmitter(room_id, room_message_transmitter);
 
-        id
+        room_id
     }
 
-    fn join_room(&mut self, room_id: Uuid, user_id: Uuid, address: CurverAddress) {
-        self.send_message_to_room(
-            room_id,
+    fn join_room_and_forward_message(
+        &mut self,
+        room_id: Uuid,
+        user_id: Uuid,
+        address: CurverAddress,
+    ) {
+        self.send_message_to_room_by_user_id(
+            user_id,
             ForwardedMessage {
                 user_id,
                 address,
@@ -119,18 +127,23 @@ impl ServerHandler {
         self.room_map.insert(user_id, room_id);
     }
 
-    fn leave_room(&mut self, user_id: Uuid, address: CurverAddress) {
-        if let Some(room_id) = self.room_map.get(&user_id) {
-            self.send_message_to_room(
-                *room_id,
-                ForwardedMessage {
-                    user_id,
-                    address,
-                    message: CurverMessageToReceive::LeaveRoom,
-                },
-            );
+    fn leave_room_and_forward_message(&mut self, user_id: Uuid, address: CurverAddress) {
+        self.send_message_to_room_by_user_id(
+            user_id,
+            ForwardedMessage {
+                user_id,
+                address,
+                message: CurverMessageToReceive::LeaveRoom,
+            },
+        );
 
-            self.room_map.remove(&user_id);
+        self.room_map.remove(&user_id);
+    }
+
+    //  --- Message Forwarding ---
+    fn send_message_to_room_by_user_id(&mut self, user_id: Uuid, message: ForwardedMessage) {
+        if let Some(room_id) = self.room_map.get(&user_id) {
+            self.send_message_to_room(*room_id, message);
         }
     }
 
@@ -142,6 +155,7 @@ impl ServerHandler {
         }
     }
 
+    // --- Message Transmitter ---
     fn add_room_transmitter(&mut self, room_id: Uuid, transmitter: Sender<ForwardedMessage>) {
         let mut transmitter_lock = self.room_message_transmitters.write();
         transmitter_lock.insert(room_id, transmitter);
