@@ -2,7 +2,7 @@ use actix::Message;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::curver_ws_actor::CurverAddress;
+use crate::{curver_ws_actor::CurverAddress, game::GameState};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct UuidSerde(pub Uuid);
@@ -33,20 +33,12 @@ impl<'de> Deserialize<'de> for UuidSerde {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-pub struct ClientState {
+pub struct Player {
     pub id: UuidSerde,
     pub x: f32,
     pub y: f32,
     pub angle_unit_vector_x: f32,
     pub angle_unit_vector_y: f32,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-pub enum GameState {
-    #[serde(rename = "waiting")]
-    Waiting,
-    #[serde(rename = "started")]
-    Started,
 }
 
 #[derive(Debug, Message, Serialize, Deserialize, PartialEq, Clone)]
@@ -64,7 +56,7 @@ pub enum CurverMessageToSend {
     #[serde(rename = "leave-room-error")]
     LeaveRoomError { reason: String },
     #[serde(rename = "update")]
-    Update { client_state: Vec<ClientState> },
+    Update { client_state: Vec<Player> },
     #[serde(rename = "game-state")]
     GameState { current_state: GameState },
     #[serde(rename = "user-won")]
@@ -112,7 +104,7 @@ mod tests {
     #[test]
     fn test_serialize_deserialize_client_state() {
         let uuid = Uuid::new_v4();
-        let client_state = ClientState {
+        let client_state = Player {
             id: UuidSerde(uuid),
             x: 1.0,
             y: 2.0,
@@ -120,7 +112,7 @@ mod tests {
             angle_unit_vector_y: 4.0,
         };
         let serialized = serde_json::to_string(&client_state).unwrap();
-        let deserialized: ClientState = serde_json::from_str(&serialized).unwrap();
+        let deserialized: Player = serde_json::from_str(&serialized).unwrap();
         assert_eq!(client_state, deserialized);
     }
 
@@ -135,7 +127,7 @@ mod tests {
     #[test]
     fn test_serialize_deserialize_websocket_message() {
         let uuid = Uuid::new_v4();
-        let client_state = ClientState {
+        let client_state = Player {
             id: UuidSerde(uuid),
             x: 1.0,
             y: 2.0,

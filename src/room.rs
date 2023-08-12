@@ -6,9 +6,8 @@ use uuid::Uuid;
 
 use crate::{
     curver_ws_actor::CurverAddress,
-    message::{
-        ClientState, CurverMessageToReceive, CurverMessageToSend, ForwardedMessage, UuidSerde,
-    },
+    game::{Game, MS_PER_TICK},
+    message::{CurverMessageToReceive, CurverMessageToSend, ForwardedMessage, Player, UuidSerde},
 };
 
 pub struct RoomHandler {
@@ -91,10 +90,6 @@ pub struct Room {
     pub receiver: Receiver<ForwardedMessage>,
 }
 
-const TICK_RATE: f32 = 10.0;
-const MS_PER_TICK: f32 = 1000.0 / TICK_RATE;
-const SPEED_PER_MS: f32 = 1.0;
-
 impl Room {
     pub fn new(id: Uuid, receiver: Receiver<ForwardedMessage>) -> Self {
         Self {
@@ -106,30 +101,20 @@ impl Room {
 
     async fn message_handler(mut self) {
         let clients_clone = self.clients.clone();
+        let mut game = Game::new();
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
 
         tokio::spawn(async move {
-            let mut client_states = vec![ClientState {
-                id: UuidSerde(Uuid::new_v4()),
-                x: 0.0,
-                y: 0.0,
-                angle_unit_vector_x: 1.0,
-                angle_unit_vector_y: 0.0,
-            }];
+            println!("Game is starting");
 
-            loop {
-                for client_state in client_states.iter_mut() {
-                    client_state.x += client_state.angle_unit_vector_x * SPEED_PER_MS / MS_PER_TICK;
-                    client_state.y += client_state.angle_unit_vector_y * SPEED_PER_MS / MS_PER_TICK;
-                }
-
-                for (_, address) in clients_clone.read().iter() {
-                    address.try_send(CurverMessageToSend::Update {
-                        client_state: client_states.clone(),
-                    });
+            let winner = loop {
+                if let Some(winner) = game.tick() {
+                    break winner;
                 }
 
                 tokio::time::sleep(tokio::time::Duration::from_millis(MS_PER_TICK as u64)).await;
-            }
+            };
         });
 
         loop {
