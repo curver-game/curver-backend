@@ -5,16 +5,15 @@ use uuid::Uuid;
 
 use crate::message::{Player, UuidSerde};
 
-const TICK_RATE: f32 = 1.0;
-const DELTA_POS_PER_SECOND: f32 = 1.0;
+const TICK_RATE: f32 = 20.0;
+const DELTA_POS_PER_SECOND: f32 = 2.0;
 
 pub const MS_PER_TICK: f32 = 1000.0 / TICK_RATE;
 const DELTA_POS_PER_TICK: f32 = DELTA_POS_PER_SECOND / TICK_RATE;
 
-const MAP_WIDTH: f32 = 100.0;
-const MAP_HEIGHT: f32 = 100.0;
+pub const MAP_WIDTH: f32 = 100.0;
+pub const MAP_HEIGHT: f32 = 100.0;
 
-#[derive(Debug)]
 pub struct Game {
     pub players: HashMap<Uuid, Player>,
     pub paths: HashMap<Uuid, Path>,
@@ -66,14 +65,12 @@ impl Game {
         for player in self.players.values_mut() {
             player.calculate_new_position();
             if Self::check_is_player_out_of_bounds(player) {
-                println!("Player out of bounds: {:?}", player);
                 players_to_remove.push(player.id.get_uuid());
                 continue;
             }
 
             for path in self.paths.values() {
                 if path.check_collision(player) {
-                    println!("Player collided with path: {:?}", player);
                     players_to_remove.push(player.id.get_uuid());
                     break;
                 }
@@ -83,8 +80,6 @@ impl Game {
                 path.push(Node(player.x, player.y));
             }
         }
-
-        println!("Tick: {:?}", self.players);
 
         for player_id in players_to_remove {
             self.remove_player(player_id);
@@ -123,7 +118,7 @@ impl Player {
 
 #[derive(Debug, Clone)]
 pub struct Path {
-    nodes: Vec<Node>,
+    pub nodes: Vec<Node>,
 }
 
 impl Path {
@@ -194,7 +189,7 @@ impl Path {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-pub struct Node(f32, f32);
+pub struct Node(pub f32, pub f32);
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum GameState {

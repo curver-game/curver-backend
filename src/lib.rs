@@ -1,4 +1,5 @@
 pub mod curver_ws_actor;
+pub mod debug_ui;
 pub mod game;
 pub mod handler;
 pub mod message;

@@ -6,8 +6,9 @@ use uuid::Uuid;
 
 use crate::{
     curver_ws_actor::CurverAddress,
+    debug_ui::DebugUi,
     game::{Game, MS_PER_TICK},
-    message::{CurverMessageToReceive, CurverMessageToSend, ForwardedMessage, Player, UuidSerde},
+    message::{CurverMessageToReceive, ForwardedMessage, UuidSerde},
 };
 
 pub struct RoomHandler {
@@ -104,17 +105,51 @@ impl Room {
         let mut game = Game::new();
         game.add_player(Uuid::new_v4());
         game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
+        game.add_player(Uuid::new_v4());
 
         tokio::spawn(async move {
-            println!("Game is starting");
+            let mut debug_ui = DebugUi::new();
 
             let winner = loop {
                 if let Some(winner) = game.tick() {
                     break winner;
                 }
 
+                debug_ui.draw_game(&game);
+
                 tokio::time::sleep(tokio::time::Duration::from_millis(MS_PER_TICK as u64)).await;
             };
+
+            debug_ui.display_winner(winner);
         });
 
         loop {
