@@ -2,7 +2,10 @@ use actix::Message;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{curver_ws_actor::CurverAddress, game::GameState};
+use crate::{
+    curver_ws_actor::CurverAddress,
+    game::{player::Player, GameState},
+};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct UuidSerde(pub Uuid);
@@ -30,15 +33,6 @@ impl<'de> Deserialize<'de> for UuidSerde {
         let s = String::deserialize(deserializer)?;
         Ok(UuidSerde(Uuid::parse_str(&s).unwrap()))
     }
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-pub struct Player {
-    pub id: UuidSerde,
-    pub x: f32,
-    pub y: f32,
-    pub angle_unit_vector_x: f32,
-    pub angle_unit_vector_y: f32,
 }
 
 #[derive(Debug, Message, Serialize, Deserialize, PartialEq, Clone)]

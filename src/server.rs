@@ -11,9 +11,9 @@ use crate::{
 };
 
 pub struct ServerHandler {
-    pub room_message_transmitters: Arc<RwLock<HashMap<Uuid, Sender<ForwardedMessage>>>>,
-    pub room_map: HashMap<Uuid, Uuid>,
-    pub internal_message_receiver: Receiver<ForwardedMessage>,
+    room_message_transmitters: Arc<RwLock<HashMap<Uuid, Sender<ForwardedMessage>>>>,
+    room_map: HashMap<Uuid, Uuid>,
+    internal_message_receiver: Receiver<ForwardedMessage>,
 }
 
 impl ServerHandler {
@@ -92,7 +92,7 @@ impl ServerHandler {
         let (room_message_transmitter, room_message_receiver) = mpsc::channel(100);
         let room_message_transmitters_clone = self.room_message_transmitters.clone();
 
-        let room = Room::new(room_id, room_message_receiver);
+        let room = Room::new(room_message_receiver);
 
         tokio::spawn(async move {
             room.message_handler().await;
@@ -113,8 +113,8 @@ impl ServerHandler {
         user_id: Uuid,
         address: CurverAddress,
     ) {
-        self.send_message_to_room_by_user_id(
-            user_id,
+        self.send_message_to_room(
+            room_id,
             ForwardedMessage {
                 user_id,
                 address,
@@ -144,6 +144,8 @@ impl ServerHandler {
     fn send_message_to_room_by_user_id(&mut self, user_id: Uuid, message: ForwardedMessage) {
         if let Some(room_id) = self.room_map.get(&user_id) {
             self.send_message_to_room(*room_id, message);
+        } else {
+            println!("User {} is not in a room", user_id);
         }
     }
 
@@ -152,6 +154,8 @@ impl ServerHandler {
 
         if let Some(transmitter) = transmitter_lock.get(&room_id) {
             transmitter.try_send(message).unwrap();
+        } else {
+            println!("Room {} does not exist", room_id);
         }
     }
 

@@ -11,7 +11,10 @@ use ratatui::{
 };
 use uuid::Uuid;
 
-use crate::game::{Game, MAP_HEIGHT, MAP_WIDTH};
+use crate::{
+    constants::{MAP_HEIGHT, MAP_WIDTH},
+    game::Game,
+};
 
 pub struct DebugUi {
     terminal: Terminal<CrosstermBackend<Stdout>>,
@@ -62,7 +65,7 @@ impl DebugUi {
         });
     }
 
-    pub fn display_winner(&mut self, winner_id: Uuid) {
+    pub fn display_winner(&mut self, winner_id: &Uuid) {
         self.terminal.clear();
 
         self.terminal.draw(|f| {
