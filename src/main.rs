@@ -2,7 +2,7 @@ use actix_web::{web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use actix_web_actors::ws;
 use curver_backend::{
     curver_ws_actor::CurverWebSocketActor, handler::internal_message_handler,
-    message::InternalMessage,
+    message::ForwardedMessage,
 };
 use tokio::sync::mpsc::{self, Sender};
 use uuid::Uuid;
@@ -10,7 +10,7 @@ use uuid::Uuid;
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let (internal_message_transmitter, internal_message_receiver) =
-        mpsc::channel::<InternalMessage>(100);
+        mpsc::channel::<ForwardedMessage>(100);
 
     tokio::spawn(async move { internal_message_handler(internal_message_receiver).await });
 
@@ -44,5 +44,5 @@ async fn index(
 }
 
 struct AppState {
-    internal_message_transmitter: Sender<InternalMessage>,
+    internal_message_transmitter: Sender<ForwardedMessage>,
 }

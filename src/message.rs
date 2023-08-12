@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::curver_ws_actor::CurverAddress;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct UuidSerde(pub Uuid);
 
 impl UuidSerde {
@@ -32,16 +32,16 @@ impl<'de> Deserialize<'de> for UuidSerde {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct ClientState {
-    id: UuidSerde,
-    x: f32,
-    y: f32,
-    angle_unit_vector_x: f32,
-    angle_unit_vector_y: f32,
+    pub id: UuidSerde,
+    pub x: f32,
+    pub y: f32,
+    pub angle_unit_vector_x: f32,
+    pub angle_unit_vector_y: f32,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum GameState {
     #[serde(rename = "waiting")]
     Waiting,
@@ -49,7 +49,7 @@ pub enum GameState {
     Started,
 }
 
-#[derive(Debug, Message, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Message, Serialize, Deserialize, PartialEq, Clone)]
 #[rtype(result = "()")]
 #[serde(tag = "type")]
 pub enum CurverMessageToSend {
@@ -90,18 +90,10 @@ pub enum CurverMessageToReceive {
     },
 }
 
-pub enum InternalMessage {
-    AddAddress {
-        address: CurverAddress,
-        user_id: Uuid,
-    },
-    RemoveAddress {
-        user_id: Uuid,
-    },
-    HandleMessage {
-        message: CurverMessageToReceive,
-        user_id: Uuid,
-    },
+pub struct ForwardedMessage {
+    pub message: CurverMessageToReceive,
+    pub user_id: Uuid,
+    pub address: CurverAddress,
 }
 
 #[cfg(test)]
