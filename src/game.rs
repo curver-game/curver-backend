@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::message::{Player, UuidSerde};
 
 const TICK_RATE: f32 = 20.0;
-const DELTA_POS_PER_SECOND: f32 = 2.0;
+const DELTA_POS_PER_SECOND: f32 = 10.0;
 
 pub const MS_PER_TICK: f32 = 1000.0 / TICK_RATE;
 const DELTA_POS_PER_TICK: f32 = DELTA_POS_PER_SECOND / TICK_RATE;
@@ -29,23 +29,11 @@ impl Game {
         }
     }
 
-    pub fn add_player(&mut self, player_id: Uuid) {
-        let random_x = rand::random::<f32>() * MAP_WIDTH;
-        let random_y = rand::random::<f32>() * MAP_HEIGHT;
-        let random_angle = rand::random::<f32>() * 2.0 * std::f32::consts::PI;
-        let random_angle_unit_vector_x = random_angle.cos();
-        let random_angle_unit_vector_y = random_angle.sin();
-        let player = Player::new(
-            player_id,
-            random_x,
-            random_y,
-            random_angle_unit_vector_x,
-            random_angle_unit_vector_y,
-        );
+    pub fn add_player(&mut self, player: Player) {
         let path = Path::new();
 
-        self.players.insert(player_id, player);
-        self.paths.insert(player_id, path);
+        self.paths.insert(player.id.get_uuid(), path);
+        self.players.insert(player.id.get_uuid(), player);
     }
 
     pub fn remove_player(&mut self, player_id: Uuid) {

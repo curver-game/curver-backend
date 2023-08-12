@@ -1,9 +1,6 @@
 use actix_web::{web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use actix_web_actors::ws;
-use curver_backend::{
-    curver_ws_actor::CurverWebSocketActor, handler::internal_message_handler,
-    message::ForwardedMessage,
-};
+use curver_backend::{curver_ws_actor::CurverWebSocketActor, message::ForwardedMessage};
 use tokio::sync::mpsc::{self, Sender};
 use uuid::Uuid;
 
@@ -12,7 +9,8 @@ async fn main() -> std::io::Result<()> {
     let (internal_message_transmitter, internal_message_receiver) =
         mpsc::channel::<ForwardedMessage>(100);
 
-    tokio::spawn(async move { internal_message_handler(internal_message_receiver).await });
+    let server_handler = curver_backend::server::ServerHandler::new(internal_message_receiver);
+    tokio::spawn(async move { server_handler.message_handler().await });
 
     let app_state = web::Data::new(AppState {
         internal_message_transmitter,
@@ -39,7 +37,6 @@ async fn index(
     };
 
     let resp = ws::start(actor, &req, stream);
-    println!("{:?}", resp);
     resp
 }
 
