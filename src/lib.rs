@@ -1,3 +1,4 @@
+pub mod config;
 pub mod constants;
 pub mod curver_ws_actor;
 pub mod debug_ui;
