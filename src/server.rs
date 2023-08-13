@@ -7,6 +7,7 @@ use uuid::Uuid;
 use crate::{
     curver_error::ServerError,
     curver_ws_actor::CurverAddress,
+    debug_ui::DebugUi,
     message::{CurverMessageToReceive, CurverMessageToSend, ForwardedMessage, UuidSerde},
     room::Room,
 };
@@ -16,14 +17,20 @@ pub struct ServerHandler {
     /// Maps user_id to room_id
     room_map: HashMap<Uuid, Uuid>,
     internal_message_receiver: Receiver<ForwardedMessage>,
+
+    debug_ui: DebugUi,
 }
 
 impl ServerHandler {
     pub fn new(internal_message_receiver: Receiver<ForwardedMessage>) -> Self {
+        let mut debug_ui = DebugUi::new();
+        debug_ui.clear();
+
         Self {
             room_message_transmitters: Arc::new(RwLock::new(HashMap::new())),
             room_map: HashMap::new(),
             internal_message_receiver,
+            debug_ui,
         }
     }
 
@@ -35,44 +42,43 @@ impl ServerHandler {
                     CurverMessageToReceive::CreateRoom => {
                         let room_id = self.create_room();
 
-                        let join_room_result = self.join_room_and_forward_message(
+                        self.join_room_and_forward_message(
                             room_id,
                             forwarded_message.user_id,
                             forwarded_message.address.clone(),
                         );
 
-                        let message_to_send = match join_room_result {
-                            Ok(_) => CurverMessageToSend::JoinedRoom {
+                        forwarded_message
+                            .address
+                            .do_send(CurverMessageToSend::JoinedRoom {
                                 room_id: UuidSerde(room_id),
                                 user_id: UuidSerde(forwarded_message.user_id),
-                            },
-                            Err(_) => CurverMessageToSend::JoinRoomError {
-                                reason: ServerError::RoomDoesNotExist(room_id).to_string(),
-                            },
-                        };
-
-                        forwarded_message.address.do_send(message_to_send);
+                            });
                     }
 
                     CurverMessageToReceive::JoinRoom { room_id } => {
-                        let join_room_result = self.join_room_and_forward_message(
+                        if !self.check_if_room_exists(room_id.get_uuid()) {
+                            forwarded_message
+                                .address
+                                .do_send(CurverMessageToSend::JoinRoomError {
+                                    reason: ServerError::RoomDoesNotExist(room_id.get_uuid())
+                                        .to_string(),
+                                });
+                            continue;
+                        }
+
+                        self.join_room_and_forward_message(
                             room_id.get_uuid(),
                             forwarded_message.user_id,
                             forwarded_message.address.clone(),
                         );
 
-                        let message_to_send = match join_room_result {
-                            Ok(_) => CurverMessageToSend::JoinedRoom {
+                        forwarded_message
+                            .address
+                            .do_send(CurverMessageToSend::JoinedRoom {
                                 room_id: UuidSerde(room_id.get_uuid()),
                                 user_id: UuidSerde(forwarded_message.user_id),
-                            },
-                            Err(_) => CurverMessageToSend::JoinRoomError {
-                                reason: ServerError::RoomDoesNotExist(room_id.get_uuid())
-                                    .to_string(),
-                            },
-                        };
-
-                        forwarded_message.address.do_send(message_to_send);
+                            });
                     }
 
                     CurverMessageToReceive::LeaveRoom => {
@@ -144,12 +150,9 @@ impl ServerHandler {
         room_id: Uuid,
         user_id: Uuid,
         address: CurverAddress,
-    ) -> Result<(), ServerError> {
-        if self.room_map.contains_key(&user_id) {
-            return Err(ServerError::RoomDoesNotExist(user_id));
-        }
-
+    ) {
         self.room_map.insert(user_id, room_id);
+        self.debug_ui.draw_rooms(self.room_map.clone());
 
         self.send_message_to_room(
             room_id,
@@ -161,8 +164,6 @@ impl ServerHandler {
                 },
             },
         );
-
-        Ok(())
     }
 
     fn leave_room_and_forward_message(&mut self, user_id: Uuid, address: CurverAddress) {
@@ -176,6 +177,11 @@ impl ServerHandler {
         );
 
         self.room_map.remove(&user_id);
+        self.debug_ui.draw_rooms(self.room_map.clone());
+    }
+
+    fn check_if_room_exists(&self, room_id: Uuid) -> bool {
+        self.room_message_transmitters.read().contains_key(&room_id)
     }
 
     //  --- Message Forwarding ---

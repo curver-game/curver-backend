@@ -1,4 +1,4 @@
-use std::io::Stdout;
+use std::{collections::HashMap, io::Stdout};
 
 use ratatui::{
     prelude::{CrosstermBackend, Rect},
@@ -9,6 +9,7 @@ use ratatui::{
     },
     Terminal,
 };
+use uuid::Uuid;
 
 use crate::{
     constants::{MAP_HEIGHT, MAP_WIDTH},
@@ -19,12 +20,13 @@ pub struct DebugUi {
     terminal: Terminal<CrosstermBackend<Stdout>>,
 }
 
+const MAP_PERCENTAGE_WIDTH: f64 = 0.6;
+
 impl DebugUi {
     pub fn new() -> Self {
         let stdout = std::io::stdout();
         let backend = CrosstermBackend::new(stdout);
-        let mut terminal = Terminal::new(backend).unwrap();
-        terminal.clear();
+        let terminal = Terminal::new(backend).unwrap();
 
         Self { terminal }
     }
@@ -59,13 +61,17 @@ impl DebugUi {
                     }
                 });
 
-            f.render_widget(canvas, size);
+            let rect = Rect::new(
+                0,
+                0,
+                (size.width as f64 * MAP_PERCENTAGE_WIDTH) as u16,
+                size.height,
+            );
+            f.render_widget(canvas, rect);
         });
     }
 
     pub fn display_outcome(&mut self, outcome: GameOutcome) {
-        self.terminal.clear();
-
         self.terminal.draw(|f| {
             let size = f.size();
 
@@ -84,12 +90,88 @@ impl DebugUi {
 
             let text_widget = ratatui::widgets::Paragraph::new(body).block(block);
             let rect = Rect::new(
-                (size.width - size.height) / 2,
+                (size.width as f64 * MAP_PERCENTAGE_WIDTH) as u16 / 2 - 5,
                 size.height / 2 - 1,
-                size.height,
+                10,
                 3,
             );
             f.render_widget(text_widget, rect);
         });
+    }
+
+    pub fn draw_rooms(&mut self, room_map: HashMap<Uuid, Uuid>) {
+        self.terminal.draw(|f| {
+            let size = f.size();
+
+            let rooms: HashMap<Uuid, Vec<Uuid>> =
+                room_map
+                    .iter()
+                    .fold(HashMap::new(), |mut acc, (user_id, room_id)| {
+                        acc.entry(*room_id).or_insert_with(Vec::new).push(*user_id);
+                        acc
+                    });
+
+            let canvas = Canvas::default()
+                .block(Block::default().title("Rooms").borders(Borders::ALL))
+                .x_bounds([0.0, size.width as f64 * MAP_PERCENTAGE_WIDTH])
+                .y_bounds([0.0, size.height as f64])
+                .paint(|ctx| {
+                    let mut y = size.height as f64 - 1.0;
+                    for (room_id, user_ids) in rooms.iter() {
+                        // Draw room Ids as mini headers and list user ids with small padding.
+                        // Also display the total number of users in the room.
+                        let x = 0.0;
+                        let room_id_str = format!("Room: {}", room_id);
+                        ctx.print(x, y, room_id_str);
+                        y -= 1.0;
+
+                        for user_id in user_ids.iter() {
+                            let user_id_str = format!("User: {}", user_id);
+                            ctx.print(x + 2.0, y, user_id_str);
+                            y -= 1.0;
+                        }
+
+                        let user_count_str = format!("User count: {}", user_ids.len());
+                        ctx.print(x + 2.0, y, user_count_str);
+
+                        y -= 1.0;
+
+                        // Draw a line to separate rooms
+                        let line = Line {
+                            x1: 0.0,
+                            y1: y as f64,
+                            x2: size.width as f64 * MAP_PERCENTAGE_WIDTH * 0.5,
+                            y2: y as f64,
+                            color: Color::LightBlue,
+                        };
+
+                        y -= 1.0;
+
+                        ctx.draw(&line);
+                    }
+
+                    y -= 1.0;
+
+                    let total_user_count_str = format!("Total users: {}", room_map.len());
+                    ctx.print(0.0, y, total_user_count_str);
+
+                    y -= 1.0;
+
+                    let room_count_str = format!("Total rooms: {}", rooms.len());
+                    ctx.print(0.0, y, room_count_str);
+                });
+
+            let rect = Rect::new(
+                (size.width as f64 * MAP_PERCENTAGE_WIDTH) as u16,
+                0,
+                (size.width as f64 * (1.0 - MAP_PERCENTAGE_WIDTH)) as u16,
+                size.height,
+            );
+            f.render_widget(canvas, rect);
+        });
+    }
+
+    pub fn clear(&mut self) {
+        self.terminal.clear();
     }
 }
