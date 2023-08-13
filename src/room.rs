@@ -112,9 +112,9 @@ impl Room {
         tokio::spawn(async move {
             let mut debug_ui = DebugUi::new();
 
-            let winner = loop {
-                if let Some(winner) = game.tick() {
-                    break winner;
+            let outcome = loop {
+                if let Some(outcome) = game.tick() {
+                    break outcome;
                 }
 
                 debug_ui.draw_game(&game);
@@ -122,7 +122,7 @@ impl Room {
                 tokio::time::sleep(tokio::time::Duration::from_millis(MS_PER_TICK as u64)).await;
             };
 
-            debug_ui.display_winner(&winner);
+            debug_ui.display_outcome(outcome);
         });
     }
 

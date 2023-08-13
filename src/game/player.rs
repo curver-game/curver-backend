@@ -11,8 +11,11 @@ pub struct Player {
     pub id: UuidSerde,
     pub x: f32,
     pub y: f32,
+    #[serde(rename = "angleUnitVectorX")]
     pub angle_unit_vector_x: f32,
+    #[serde(rename = "angleUnitVectorY")]
     pub angle_unit_vector_y: f32,
+    #[serde(rename = "isReady")]
     pub is_ready: bool,
 }
 

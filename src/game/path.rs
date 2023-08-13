@@ -4,7 +4,7 @@ use crate::constants::DELTA_POS_PER_TICK;
 
 use super::player::Player;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Path {
     pub nodes: Vec<Node>,
 }

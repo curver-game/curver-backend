@@ -26,26 +26,24 @@ pub struct Game {
 
     pub clients: Arc<RwLock<Clients>>,
     pub players: Arc<RwLock<Players>>,
-    pub game_state: Arc<RwLock<GameState>>,
 }
 
 impl Game {
     pub fn new(
-        game_state: Arc<RwLock<GameState>>,
+        state: Arc<RwLock<GameState>>,
         clients: Arc<RwLock<Clients>>,
         players: Arc<RwLock<Players>>,
     ) -> Game {
         Game {
-            state: game_state,
+            state,
             paths: HashMap::new(),
             clients,
             players,
-            game_state,
         }
     }
 
     /// Returns the winner
-    pub fn tick(&mut self) -> Option<Uuid> {
+    pub fn tick(&mut self) -> Option<GameOutcome> {
         let mut players_to_eliminate: Vec<Uuid> = Vec::new();
 
         for player in self.players.write().values_mut() {
@@ -76,18 +74,28 @@ impl Game {
 
         self.send_update_to_all();
 
-        if self.players.read().len() == 1 {
-            let winner = self.players.read().keys().next().cloned()?;
+        let remaining_player_count = self.players.read().len();
 
-            self.send_message_to_all(CurverMessageToSend::UserWon {
-                user_id: UuidSerde(winner),
-            });
+        let outcome = match remaining_player_count {
+            0 => Some(GameOutcome::Tie),
+            1 => {
+                let winner = self.players.read().keys().next().cloned()?;
+                Some(GameOutcome::Winner(UuidSerde(winner)))
+            }
+            _ => return None,
+        };
 
-            *self.game_state.write() = GameState::Waiting;
-            return Some(winner);
+        match outcome.clone() {
+            Some(outcome) => {
+                self.send_message_to_all(CurverMessageToSend::GameEnded { outcome });
+
+                *self.state.write() = GameState::Waiting;
+                self.send_update_to_all();
+            }
+            None => (),
         }
 
-        None
+        outcome
     }
 
     // --- Player Handling ---
@@ -140,6 +148,15 @@ impl Game {
             client.do_send(message.clone());
         }
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "type")]
+pub enum GameOutcome {
+    #[serde(rename = "winner")]
+    Winner(UuidSerde),
+    #[serde(rename = "tie")]
+    Tie,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]

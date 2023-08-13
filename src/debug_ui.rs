@@ -9,11 +9,10 @@ use ratatui::{
     },
     Terminal,
 };
-use uuid::Uuid;
 
 use crate::{
     constants::{MAP_HEIGHT, MAP_WIDTH},
-    game::Game,
+    game::{Game, GameOutcome},
 };
 
 pub struct DebugUi {
@@ -64,16 +63,26 @@ impl DebugUi {
         });
     }
 
-    pub fn display_winner(&mut self, winner_id: &Uuid) {
+    pub fn display_outcome(&mut self, outcome: GameOutcome) {
         self.terminal.clear();
 
         self.terminal.draw(|f| {
             let size = f.size();
 
             // Display winner Uuid in the middle of the screen in a fancy widget
-            let block = Block::default().title("Winner").borders(Borders::ALL);
-            let text = format!("{}", winner_id);
-            let text_widget = ratatui::widgets::Paragraph::new(text).block(block);
+            let title = match outcome {
+                GameOutcome::Winner(..) => format!("Winner)"),
+                GameOutcome::Tie => "Draw".to_string(),
+            };
+
+            let body = match outcome {
+                GameOutcome::Winner(winner_id) => format!("Player: {}", winner_id.get_uuid()),
+                GameOutcome::Tie => "No winner".to_string(),
+            };
+
+            let block = Block::default().title(title).borders(Borders::ALL);
+
+            let text_widget = ratatui::widgets::Paragraph::new(body).block(block);
             let rect = Rect::new(
                 (size.width - size.height) / 2,
                 size.height / 2 - 1,
