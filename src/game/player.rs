@@ -75,7 +75,8 @@ impl<'de> Deserialize<'de> for PlayerUuid {
         D: serde::de::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Ok(PlayerUuid(Uuid::parse_str(&s).unwrap()))
+        let uuid = Uuid::parse_str(&s).map_err(serde::de::Error::custom)?;
+        Ok(PlayerUuid(uuid))
     }
 }
 

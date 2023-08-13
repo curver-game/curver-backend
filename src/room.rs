@@ -287,7 +287,8 @@ impl<'de> Deserialize<'de> for RoomUuid {
         D: serde::de::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Ok(RoomUuid(Uuid::parse_str(&s).unwrap()))
+        let uuid = Uuid::parse_str(&s).map_err(serde::de::Error::custom)?;
+        Ok(RoomUuid(uuid))
     }
 }
 
