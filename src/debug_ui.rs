@@ -2,10 +2,10 @@ use std::{collections::HashMap, io::Stdout};
 
 use ratatui::{
     prelude::{CrosstermBackend, Rect},
-    style::Color,
+    style::{Color, Style},
     widgets::{
         canvas::{Canvas, Line},
-        Block, Borders,
+        Block, Borders, Clear,
     },
     Terminal,
 };
@@ -173,5 +173,20 @@ impl DebugUi {
 
     pub fn clear(&mut self) {
         self.terminal.clear();
+    }
+
+    pub fn clear_game(&mut self) {
+        self.terminal.draw(|f| {
+            let size = f.size();
+
+            let width = (size.width as f64 * MAP_PERCENTAGE_WIDTH) as u16;
+            let height = size.height;
+
+            let rect = Rect::new(0, 0, width, height);
+
+            let clear = Block::new().style(Style::default().bg(Color::Black));
+
+            f.render_widget(clear, rect);
+        });
     }
 }
