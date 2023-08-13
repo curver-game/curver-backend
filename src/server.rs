@@ -5,6 +5,7 @@ use tokio::sync::mpsc::{self, Receiver, Sender};
 use uuid::Uuid;
 
 use crate::{
+    curver_error::ServerError,
     curver_ws_actor::CurverAddress,
     message::{CurverMessageToReceive, CurverMessageToSend, ForwardedMessage, UuidSerde},
     room::Room,
@@ -34,33 +35,44 @@ impl ServerHandler {
                     CurverMessageToReceive::CreateRoom => {
                         let room_id = self.create_room();
 
-                        self.join_room_and_forward_message(
+                        let join_room_result = self.join_room_and_forward_message(
                             room_id,
                             forwarded_message.user_id,
                             forwarded_message.address.clone(),
                         );
 
-                        forwarded_message
-                            .address
-                            .do_send(CurverMessageToSend::JoinedRoom {
+                        let message_to_send = match join_room_result {
+                            Ok(_) => CurverMessageToSend::JoinedRoom {
                                 room_id: UuidSerde(room_id),
                                 user_id: UuidSerde(forwarded_message.user_id),
-                            });
+                            },
+                            Err(_) => CurverMessageToSend::JoinRoomError {
+                                reason: ServerError::RoomDoesNotExist(room_id).to_string(),
+                            },
+                        };
+
+                        forwarded_message.address.do_send(message_to_send);
                     }
 
                     CurverMessageToReceive::JoinRoom { room_id } => {
-                        self.join_room_and_forward_message(
+                        let join_room_result = self.join_room_and_forward_message(
                             room_id.get_uuid(),
                             forwarded_message.user_id,
                             forwarded_message.address.clone(),
                         );
 
-                        forwarded_message
-                            .address
-                            .do_send(CurverMessageToSend::JoinedRoom {
+                        let message_to_send = match join_room_result {
+                            Ok(_) => CurverMessageToSend::JoinedRoom {
                                 room_id: UuidSerde(room_id.get_uuid()),
                                 user_id: UuidSerde(forwarded_message.user_id),
-                            });
+                            },
+                            Err(_) => CurverMessageToSend::JoinRoomError {
+                                reason: ServerError::RoomDoesNotExist(room_id.get_uuid())
+                                    .to_string(),
+                            },
+                        };
+
+                        forwarded_message.address.do_send(message_to_send);
                     }
 
                     CurverMessageToReceive::LeaveRoom => {
@@ -132,7 +144,13 @@ impl ServerHandler {
         room_id: Uuid,
         user_id: Uuid,
         address: CurverAddress,
-    ) {
+    ) -> Result<(), ServerError> {
+        if self.room_map.contains_key(&user_id) {
+            return Err(ServerError::RoomDoesNotExist(user_id));
+        }
+
+        self.room_map.insert(user_id, room_id);
+
         self.send_message_to_room(
             room_id,
             ForwardedMessage {
@@ -144,7 +162,7 @@ impl ServerHandler {
             },
         );
 
-        self.room_map.insert(user_id, room_id);
+        Ok(())
     }
 
     fn leave_room_and_forward_message(&mut self, user_id: Uuid, address: CurverAddress) {
