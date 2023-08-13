@@ -18,7 +18,7 @@ pub struct Room {
     clients: Arc<RwLock<Clients>>,
     players: Arc<RwLock<Players>>,
 
-    game_state: GameState,
+    game_state: Arc<RwLock<GameState>>,
 }
 
 impl Room {
@@ -30,7 +30,7 @@ impl Room {
             receiver,
             clients: clients.clone(),
             players: players.clone(),
-            game_state: GameState::Waiting,
+            game_state: Arc::new(RwLock::new(GameState::Waiting)),
         }
     }
 
@@ -88,7 +88,7 @@ impl Room {
         }
 
         self.position_all_players();
-        self.game_state = GameState::Countdown;
+        *self.game_state.write() = GameState::Countdown;
         self.send_update_to_all();
 
         tokio::time::sleep(tokio::time::Duration::from_secs(
@@ -97,13 +97,17 @@ impl Room {
         .await;
 
         self.spawn_game();
-        self.game_state = GameState::Started;
+        *self.game_state.write() = GameState::Started;
 
         self.send_update_to_all();
     }
 
     fn spawn_game(&self) {
-        let mut game = Game::new(self.clients.clone(), self.players.clone());
+        let mut game = Game::new(
+            self.game_state.clone(),
+            self.clients.clone(),
+            self.players.clone(),
+        );
 
         tokio::spawn(async move {
             let mut debug_ui = DebugUi::new();
@@ -194,7 +198,7 @@ impl Room {
     fn send_update_to_all(&self) {
         let update = CurverMessageToSend::Update {
             players: self.players.read().values().cloned().collect(),
-            game_state: self.game_state,
+            game_state: self.game_state.read().clone(),
         };
 
         self.send_message_to_all(update);

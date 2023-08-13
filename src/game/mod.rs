@@ -22,19 +22,25 @@ pub type Players = HashMap<Uuid, Player>;
 
 pub struct Game {
     pub paths: HashMap<Uuid, Path>,
-    pub state: GameState,
+    pub state: Arc<RwLock<GameState>>,
 
     pub clients: Arc<RwLock<Clients>>,
     pub players: Arc<RwLock<Players>>,
+    pub game_state: Arc<RwLock<GameState>>,
 }
 
 impl Game {
-    pub fn new(clients: Arc<RwLock<Clients>>, players: Arc<RwLock<Players>>) -> Game {
+    pub fn new(
+        game_state: Arc<RwLock<GameState>>,
+        clients: Arc<RwLock<Clients>>,
+        players: Arc<RwLock<Players>>,
+    ) -> Game {
         Game {
-            state: GameState::Waiting,
+            state: game_state,
             paths: HashMap::new(),
             clients,
             players,
+            game_state,
         }
     }
 
@@ -68,6 +74,8 @@ impl Game {
             self.eliminate_player_and_notify_all(*player_id);
         });
 
+        self.send_update_to_all();
+
         if self.players.read().len() == 1 {
             let winner = self.players.read().keys().next().cloned()?;
 
@@ -75,10 +83,9 @@ impl Game {
                 user_id: UuidSerde(winner),
             });
 
+            *self.game_state.write() = GameState::Waiting;
             return Some(winner);
         }
-
-        self.send_update_to_all();
 
         None
     }
@@ -122,6 +129,7 @@ impl Game {
     fn send_update_to_all(&self) {
         let update = CurverMessageToSend::Update {
             players: self.players.read().values().cloned().collect(),
+            game_state: self.state.read().clone(),
         };
 
         self.send_message_to_all(update);
