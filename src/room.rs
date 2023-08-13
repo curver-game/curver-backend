@@ -2,6 +2,7 @@ use core::fmt;
 use std::{collections::HashMap, sync::Arc};
 
 use parking_lot::RwLock;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::Receiver;
 use uuid::Uuid;
@@ -158,6 +159,24 @@ impl Room {
         self.send_message_to_all(CurverMessageToSend::UserEliminated { user_id })
     }
 
+    fn check_if_ready_to_start(&self) -> bool {
+        let players_lock = self.players.read();
+
+        if players_lock.len() < 2 {
+            return false;
+        }
+
+        for player in players_lock.values() {
+            if !player.is_ready {
+                return false;
+            }
+        }
+
+        drop(players_lock);
+
+        true
+    }
+
     // --- Player Handling ---
     fn spawn_player(&mut self, player_id: PlayerUuid) {
         let player = Player {
@@ -173,21 +192,12 @@ impl Room {
     }
 
     fn position_all_players(&mut self) {
-        // Create an imaginary circle on the center of the map
-        // The circle's radius will be 40% of the map's width or height, whichever is smaller
-        // Place all players on the circle
-        // The angle between each player will be 360 / number of players
-        // The first player will be placed at 0 degrees and it means they will be placed on the right side of the circle
-        // The second player will be placed at 360 / number of players degrees and it means they will be placed on the left side of the circle
-        // The players will always face the center of the circle
-
-        let player_count = self.players.read().len() as f32;
+        // Create an imaginary circle in the middle of the map
+        // and position all players on that circle randomly
 
         let circle_radius = MAP_WIDTH.min(MAP_HEIGHT) * 0.4;
 
-        let angle_between_players = 360.0 / player_count;
-
-        let mut current_angle: f32 = 0.0;
+        let mut current_angle: f32 = rand::thread_rng().gen_range(0.0..360.0);
 
         let circle_center_x = MAP_WIDTH / 2.0;
         let circle_center_y = MAP_HEIGHT / 2.0;
@@ -199,7 +209,8 @@ impl Room {
             player.angle_unit_vector_x = (circle_center_x - player.x) / circle_radius;
             player.angle_unit_vector_y = (circle_center_y - player.y) / circle_radius;
 
-            current_angle += angle_between_players;
+            current_angle += rand::thread_rng().gen_range(0.0..360.0);
+            current_angle %= 360.0;
         }
     }
 
@@ -230,24 +241,6 @@ impl Room {
         }
 
         self.send_update_to_all();
-    }
-
-    fn check_if_ready_to_start(&self) -> bool {
-        let players_lock = self.players.read();
-
-        if players_lock.len() < 2 {
-            return false;
-        }
-
-        for player in players_lock.values() {
-            if !player.is_ready {
-                return false;
-            }
-        }
-
-        drop(players_lock);
-
-        true
     }
 
     fn remove_client(&mut self, user_id: PlayerUuid) {
