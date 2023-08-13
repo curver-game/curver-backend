@@ -19,17 +19,14 @@ pub struct ForwardedMessage {
 #[rtype(result = "()")]
 #[serde(tag = "type")]
 pub enum CurverMessageToSend {
-    #[serde(rename = "createdRoom")]
-    CreatedRoom {
-        #[serde(rename = "roomId")]
-        room_id: UuidSerde,
-    },
     #[serde(rename = "joinRoomError")]
     JoinRoomError { reason: String },
     #[serde(rename = "joinedRoom")]
     JoinedRoom {
         #[serde(rename = "roomId")]
         room_id: UuidSerde,
+        #[serde(rename = "userId")]
+        user_id: UuidSerde,
     },
     #[serde(rename = "leftRoom")]
     LeftRoom,
@@ -148,14 +145,12 @@ mod tests {
         );
 
         let all_messages_to_send = vec![
-            CurverMessageToSend::CreatedRoom {
-                room_id: super::UuidSerde(uuid::Uuid::new_v4()),
-            },
             CurverMessageToSend::JoinRoomError {
                 reason: "reason".to_string(),
             },
             CurverMessageToSend::JoinedRoom {
                 room_id: super::UuidSerde(uuid::Uuid::new_v4()),
+                user_id: super::UuidSerde(uuid::Uuid::new_v4()),
             },
             CurverMessageToSend::LeftRoom,
             CurverMessageToSend::LeaveRoomError {

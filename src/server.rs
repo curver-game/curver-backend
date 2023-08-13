@@ -34,17 +34,18 @@ impl ServerHandler {
                     CurverMessageToReceive::CreateRoom => {
                         let room_id = self.create_room();
 
-                        forwarded_message
-                            .address
-                            .do_send(CurverMessageToSend::CreatedRoom {
-                                room_id: UuidSerde(room_id),
-                            });
-
                         self.join_room_and_forward_message(
                             room_id,
                             forwarded_message.user_id,
                             forwarded_message.address.clone(),
                         );
+
+                        forwarded_message
+                            .address
+                            .do_send(CurverMessageToSend::JoinedRoom {
+                                room_id: UuidSerde(room_id),
+                                user_id: UuidSerde(forwarded_message.user_id),
+                            });
                     }
 
                     CurverMessageToReceive::JoinRoom { room_id } => {
@@ -58,6 +59,7 @@ impl ServerHandler {
                             .address
                             .do_send(CurverMessageToSend::JoinedRoom {
                                 room_id: UuidSerde(room_id.get_uuid()),
+                                user_id: UuidSerde(forwarded_message.user_id),
                             });
                     }
 
