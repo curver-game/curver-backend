@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
+    constants::TICK_COUNT_TO_SYNC,
     curver_ws_actor::CurverAddress,
     message::{CurverMessageToSend, UuidSerde},
 };
@@ -26,6 +27,8 @@ pub struct Game {
 
     pub clients: Arc<RwLock<Clients>>,
     pub players: Arc<RwLock<Players>>,
+
+    tick_count: u32,
 }
 
 impl Game {
@@ -39,6 +42,7 @@ impl Game {
             paths: HashMap::new(),
             clients,
             players,
+            tick_count: 0,
         }
     }
 
@@ -97,6 +101,12 @@ impl Game {
             None => (),
         }
 
+        if self.tick_count % TICK_COUNT_TO_SYNC == 0 {
+            self.send_sync_to_all();
+        }
+
+        self.tick_count += 1;
+
         outcome
     }
 
@@ -136,6 +146,18 @@ impl Game {
     }
 
     // --- Message Sending ---
+    fn send_sync_to_all(&self) {
+        let sync = CurverMessageToSend::SyncPaths {
+            paths: self
+                .paths
+                .iter()
+                .map(|(&id, path)| (UuidSerde(id), path.clone()))
+                .collect(),
+        };
+
+        self.send_message_to_all(sync);
+    }
+
     fn send_update_to_all(&self) {
         let update = CurverMessageToSend::Update {
             players: self.players.read().values().cloned().collect(),

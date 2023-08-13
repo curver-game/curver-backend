@@ -1,4 +1,6 @@
 const TICK_RATE: f32 = 20.0;
+pub const TICK_COUNT_TO_SYNC: u32 = 20;
+
 const DELTA_POS_PER_SECOND: f32 = 1.0;
 pub const GAME_START_COUNTDOWN_SECONDS: u64 = 3;
 
