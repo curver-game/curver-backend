@@ -80,7 +80,9 @@ impl Game {
             0 => Some(GameOutcome::Tie),
             1 => {
                 let winner = self.players.read().keys().next().cloned()?;
-                Some(GameOutcome::Winner(UuidSerde(winner)))
+                Some(GameOutcome::Winner {
+                    user_id: UuidSerde(winner),
+                })
             }
             _ => return None,
         };
@@ -154,7 +156,10 @@ impl Game {
 #[serde(tag = "type")]
 pub enum GameOutcome {
     #[serde(rename = "winner")]
-    Winner(UuidSerde),
+    Winner {
+        #[serde(rename = "userId")]
+        user_id: UuidSerde,
+    },
     #[serde(rename = "tie")]
     Tie,
 }

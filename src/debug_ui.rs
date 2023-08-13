@@ -71,12 +71,12 @@ impl DebugUi {
 
             // Display winner Uuid in the middle of the screen in a fancy widget
             let title = match outcome {
-                GameOutcome::Winner(..) => format!("Winner)"),
+                GameOutcome::Winner { .. } => format!("Winner)"),
                 GameOutcome::Tie => "Draw".to_string(),
             };
 
             let body = match outcome {
-                GameOutcome::Winner(winner_id) => format!("Player: {}", winner_id.get_uuid()),
+                GameOutcome::Winner { user_id } => format!("Player: {}", user_id.get_uuid()),
                 GameOutcome::Tie => "No winner".to_string(),
             };
 

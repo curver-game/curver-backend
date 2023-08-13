@@ -106,3 +106,119 @@ impl<'de> Deserialize<'de> for UuidSerde {
         Ok(UuidSerde(Uuid::parse_str(&s).unwrap()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use crate::game::{
+        path::{Node, Path},
+        player::Player,
+    };
+
+    use super::{CurverMessageToReceive, CurverMessageToSend, UuidSerde};
+
+    #[test]
+    fn write_all_possible_jsons() {
+        let players = vec![
+            Player {
+                id: UuidSerde(uuid::Uuid::new_v4()),
+                x: 0.0,
+                y: 1.1,
+                is_ready: false,
+                angle_unit_vector_x: 1.0,
+                angle_unit_vector_y: 0.0,
+            },
+            Player {
+                id: UuidSerde(uuid::Uuid::new_v4()),
+                x: 0.0,
+                y: 1.1,
+                is_ready: false,
+                angle_unit_vector_x: 1.0,
+                angle_unit_vector_y: 0.0,
+            },
+        ];
+
+        let mut paths = HashMap::new();
+        paths.insert(
+            super::UuidSerde(uuid::Uuid::new_v4()),
+            Path {
+                nodes: vec![Node(0.0, 1.1), Node(2.2, 3.3)],
+            },
+        );
+
+        let all_messages_to_send = vec![
+            CurverMessageToSend::CreatedRoom {
+                room_id: super::UuidSerde(uuid::Uuid::new_v4()),
+            },
+            CurverMessageToSend::JoinRoomError {
+                reason: "reason".to_string(),
+            },
+            CurverMessageToSend::JoinedRoom {
+                room_id: super::UuidSerde(uuid::Uuid::new_v4()),
+            },
+            CurverMessageToSend::LeftRoom,
+            CurverMessageToSend::LeaveRoomError {
+                reason: "reason".to_string(),
+            },
+            CurverMessageToSend::Update {
+                players: players.clone(),
+                game_state: crate::game::GameState::Waiting,
+            },
+            CurverMessageToSend::Update {
+                players: players.clone(),
+                game_state: crate::game::GameState::Countdown,
+            },
+            CurverMessageToSend::Update {
+                players: players.clone(),
+                game_state: crate::game::GameState::Started,
+            },
+            CurverMessageToSend::SyncPaths { paths: paths },
+            CurverMessageToSend::GameEnded {
+                outcome: crate::game::GameOutcome::Tie,
+            },
+            CurverMessageToSend::GameEnded {
+                outcome: crate::game::GameOutcome::Winner {
+                    user_id: super::UuidSerde(uuid::Uuid::new_v4()),
+                },
+            },
+            CurverMessageToSend::UserEliminated {
+                user_id: super::UuidSerde(uuid::Uuid::new_v4()),
+            },
+        ];
+
+        let all_messages_to_receive = vec![
+            super::CurverMessageToReceive::CreateRoom,
+            super::CurverMessageToReceive::JoinRoom {
+                room_id: super::UuidSerde(uuid::Uuid::new_v4()),
+            },
+            super::CurverMessageToReceive::LeaveRoom,
+            super::CurverMessageToReceive::Rotate {
+                angle_unit_vector_x: 1.0,
+                angle_unit_vector_y: 0.0,
+            },
+            super::CurverMessageToReceive::IsReady { is_ready: true },
+            super::CurverMessageToReceive::IsReady { is_ready: false },
+        ];
+
+        println!("Messages sent by server:");
+        for message in all_messages_to_send {
+            write_send_message_as_json(message);
+        }
+
+        println!("\nMessages received by server:");
+        for message in all_messages_to_receive {
+            write_receive_message_as_json(message);
+        }
+    }
+
+    fn write_send_message_as_json(message: CurverMessageToSend) {
+        let json = serde_json::to_string(&message).unwrap();
+        println!("{}", json);
+    }
+
+    fn write_receive_message_as_json(message: CurverMessageToReceive) {
+        let json = serde_json::to_string(&message).unwrap();
+        println!("{}", json);
+    }
+}
