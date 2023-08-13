@@ -1,5 +1,7 @@
 # Curver Backend
 
+<img width="1728" alt="Screen Shot 2023-08-14 at 02 06 45" src="https://github.com/curver-game/curver-backend/assets/23079646/cbccadfa-a0aa-4c3e-ad82-76c116ad6167">
+
 Curver is a tron-clone game. The game is played on a 2D plane. Every player moves continously and leave trails behind. If any player hits the trails or go out of the map's bounds, they get eliminated. The goal of the game is to be the last player standing.
 
 This repository contains a multi-threaded websocket server written in Rust for the game.
