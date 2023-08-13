@@ -50,9 +50,10 @@ pub enum CurverMessageToSend {
     #[serde(rename = "leave-room-error")]
     LeaveRoomError { reason: String },
     #[serde(rename = "update")]
-    Update { players: Vec<Player> },
-    #[serde(rename = "game-state")]
-    GameState { current_state: GameState },
+    Update {
+        players: Vec<Player>,
+        game_state: GameState,
+    },
     #[serde(rename = "user-won")]
     UserWon { user_id: UuidSerde },
     #[serde(rename = "user-eliminated")]

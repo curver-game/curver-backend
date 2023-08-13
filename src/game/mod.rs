@@ -42,8 +42,7 @@ impl Game {
     pub fn tick(&mut self) -> Option<Uuid> {
         let mut players_to_eliminate: Vec<Uuid> = Vec::new();
 
-        let mut players_clone = self.players.read().clone();
-        for player in players_clone.values_mut() {
+        for player in self.players.write().values_mut() {
             player.calculate_new_position();
 
             if player.check_if_out_of_bounds() {
@@ -58,16 +57,16 @@ impl Game {
                 }
             }
 
-            self.add_players_location_to_path(player.id.get_uuid(), Node(player.x, player.y));
+            Game::add_players_location_to_path(
+                &mut self.paths,
+                player.id.get_uuid(),
+                Node(player.x, player.y),
+            );
         }
 
-        let mut players_lock = self.players.write();
-        players_lock.extend(players_clone);
-        drop(players_lock);
-
-        for player_id in players_to_eliminate {
-            self.eliminate_player_and_notify_all(player_id);
-        }
+        players_to_eliminate.iter().for_each(|player_id| {
+            self.eliminate_player_and_notify_all(*player_id);
+        });
 
         if self.players.read().len() == 1 {
             let winner = self.players.read().keys().next().cloned()?;
@@ -109,13 +108,13 @@ impl Game {
         self.players.write().remove(&player_id);
     }
 
-    fn add_players_location_to_path(&mut self, player_id: Uuid, node: Node) {
-        if let Some(path) = self.paths.get_mut(&player_id) {
+    fn add_players_location_to_path(paths: &mut HashMap<Uuid, Path>, player_id: Uuid, node: Node) {
+        if let Some(path) = paths.get_mut(&player_id) {
             path.push(node);
         } else {
             let path = Path { nodes: vec![node] };
 
-            self.paths.insert(player_id, path);
+            paths.insert(player_id, path);
         }
     }
 
@@ -129,16 +128,8 @@ impl Game {
     }
 
     fn send_message_to_all(&self, message: CurverMessageToSend) {
-        let clients_lock = self.clients.read();
-        for client in clients_lock.values() {
+        for client in self.clients.read().values() {
             client.do_send(message.clone());
-        }
-    }
-
-    fn send_message_to_user(&self, user_id: Uuid, message: CurverMessageToSend) {
-        let clients_lock = self.clients.read();
-        if let Some(client) = clients_lock.get(&user_id) {
-            client.do_send(message);
         }
     }
 }
@@ -147,6 +138,8 @@ impl Game {
 pub enum GameState {
     #[serde(rename = "waiting")]
     Waiting,
+    #[serde(rename = "countdown")]
+    Countdown,
     #[serde(rename = "started")]
     Started,
 }

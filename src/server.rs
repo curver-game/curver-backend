@@ -12,6 +12,7 @@ use crate::{
 
 pub struct ServerHandler {
     room_message_transmitters: Arc<RwLock<HashMap<Uuid, Sender<ForwardedMessage>>>>,
+    /// Maps user_id to room_id
     room_map: HashMap<Uuid, Uuid>,
     internal_message_receiver: Receiver<ForwardedMessage>,
 }

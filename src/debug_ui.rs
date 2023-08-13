@@ -49,9 +49,9 @@ impl DebugUi {
                             let second_line = &path.nodes[i + 1];
                             let line = Line {
                                 x1: first_line.0.into(),
-                                y1: first_line.1.into(),
+                                y1: (MAP_HEIGHT - first_line.1).into(),
                                 x2: second_line.0.into(),
-                                y2: second_line.1.into(),
+                                y2: (MAP_HEIGHT - second_line.1).into(),
                                 color: Color::LightBlue,
                             };
 
@@ -60,8 +60,7 @@ impl DebugUi {
                     }
                 });
 
-            let rect = Rect::new((size.width - size.height) / 2, 0, size.height, size.height);
-            f.render_widget(canvas, rect);
+            f.render_widget(canvas, size);
         });
     }
 
