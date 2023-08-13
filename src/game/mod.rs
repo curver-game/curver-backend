@@ -95,6 +95,7 @@ impl Game {
             Some(outcome) => {
                 self.send_message_to_all(CurverMessageToSend::GameEnded { outcome });
 
+                self.reset_all_players();
                 *self.state.write() = GameState::Waiting;
                 self.send_update_to_all();
             }
@@ -142,6 +143,16 @@ impl Game {
             let path = Path { nodes: vec![node] };
 
             paths.insert(player_id, path);
+        }
+    }
+
+    fn reset_all_players(&mut self) {
+        for player in self.players.write().values_mut() {
+            player.x = 0.0;
+            player.y = 0.0;
+            player.angle_unit_vector_x = 0.0;
+            player.angle_unit_vector_y = 0.0;
+            player.is_ready = false;
         }
     }
 
