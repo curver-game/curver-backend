@@ -2,10 +2,10 @@ use actix_web::{web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use actix_web_actors::ws;
 use clap::Parser;
 use curver_backend::{
-    config::Config, curver_ws_actor::CurverWebSocketActor, message::ForwardedMessage,
+    config::Config, curver_ws_actor::CurverWebSocketActor, game::player::PlayerUuid,
+    message::ForwardedMessage,
 };
 use tokio::sync::mpsc::{self, Sender};
-use uuid::Uuid;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -35,7 +35,7 @@ async fn index(
     stream: web::Payload,
     app_state: web::Data<AppState>,
 ) -> Result<HttpResponse, Error> {
-    let id = Uuid::new_v4();
+    let id = PlayerUuid::new();
     let actor = CurverWebSocketActor {
         id,
         internal_message_transmitter: app_state.internal_message_transmitter.clone(),

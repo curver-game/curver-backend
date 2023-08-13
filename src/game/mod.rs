@@ -5,24 +5,21 @@ use std::{collections::HashMap, sync::Arc};
 
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::{
-    constants::TICK_COUNT_TO_SYNC,
-    curver_ws_actor::CurverAddress,
-    message::{CurverMessageToSend, UuidSerde},
+    constants::TICK_COUNT_TO_SYNC, curver_ws_actor::CurverAddress, message::CurverMessageToSend,
 };
 
 use self::{
     path::{Node, Path},
-    player::Player,
+    player::{Player, PlayerUuid},
 };
 
-pub type Clients = HashMap<Uuid, CurverAddress>;
-pub type Players = HashMap<Uuid, Player>;
+pub type Clients = HashMap<PlayerUuid, CurverAddress>;
+pub type Players = HashMap<PlayerUuid, Player>;
 
 pub struct Game {
-    pub paths: HashMap<Uuid, Path>,
+    pub paths: HashMap<PlayerUuid, Path>,
     pub state: Arc<RwLock<GameState>>,
 
     pub clients: Arc<RwLock<Clients>>,
@@ -48,26 +45,26 @@ impl Game {
 
     /// Returns the winner
     pub fn tick(&mut self) -> Option<GameOutcome> {
-        let mut players_to_eliminate: Vec<Uuid> = Vec::new();
+        let mut players_to_eliminate: Vec<PlayerUuid> = Vec::new();
 
         for player in self.players.write().values_mut() {
             player.calculate_new_position();
 
             if player.check_if_out_of_bounds() {
-                players_to_eliminate.push(player.id.get_uuid());
+                players_to_eliminate.push(player.id);
                 continue;
             }
 
             for path in self.paths.values() {
                 if path.check_collision(player) {
-                    players_to_eliminate.push(player.id.get_uuid());
+                    players_to_eliminate.push(player.id);
                     break;
                 }
             }
 
             Game::add_players_location_to_path(
                 &mut self.paths,
-                player.id.get_uuid(),
+                player.id,
                 Node(player.x, player.y),
             );
         }
@@ -84,9 +81,7 @@ impl Game {
             0 => Some(GameOutcome::Tie),
             1 => {
                 let winner = self.players.read().keys().next().cloned()?;
-                Some(GameOutcome::Winner {
-                    user_id: UuidSerde(winner),
-                })
+                Some(GameOutcome::Winner { user_id: winner })
             }
             _ => return None,
         };
@@ -114,7 +109,7 @@ impl Game {
     // --- Player Handling ---
     pub fn rotate_player(
         &mut self,
-        user_id: Uuid,
+        user_id: PlayerUuid,
         angle_unit_vector_x: f32,
         angle_unit_vector_y: f32,
     ) {
@@ -124,19 +119,21 @@ impl Game {
         };
     }
 
-    fn eliminate_player_and_notify_all(&mut self, player_id: Uuid) {
+    fn eliminate_player_and_notify_all(&mut self, player_id: PlayerUuid) {
         self.remove_player(player_id);
 
-        self.send_message_to_all(CurverMessageToSend::UserEliminated {
-            user_id: UuidSerde(player_id),
-        });
+        self.send_message_to_all(CurverMessageToSend::UserEliminated { user_id: player_id });
     }
 
-    fn remove_player(&mut self, player_id: Uuid) {
+    fn remove_player(&mut self, player_id: PlayerUuid) {
         self.players.write().remove(&player_id);
     }
 
-    fn add_players_location_to_path(paths: &mut HashMap<Uuid, Path>, player_id: Uuid, node: Node) {
+    fn add_players_location_to_path(
+        paths: &mut HashMap<PlayerUuid, Path>,
+        player_id: PlayerUuid,
+        node: Node,
+    ) {
         if let Some(path) = paths.get_mut(&player_id) {
             path.push(node);
         } else {
@@ -159,11 +156,7 @@ impl Game {
     // --- Message Sending ---
     fn send_sync_to_all(&self) {
         let sync = CurverMessageToSend::SyncPaths {
-            paths: self
-                .paths
-                .iter()
-                .map(|(&id, path)| (UuidSerde(id), path.clone()))
-                .collect(),
+            paths: self.paths.clone(),
         };
 
         self.send_message_to_all(sync);
@@ -191,7 +184,7 @@ pub enum GameOutcome {
     #[serde(rename = "winner")]
     Winner {
         #[serde(rename = "userId")]
-        user_id: UuidSerde,
+        user_id: PlayerUuid,
     },
     #[serde(rename = "tie")]
     Tie,

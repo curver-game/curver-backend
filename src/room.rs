@@ -1,6 +1,8 @@
+use core::fmt;
 use std::{collections::HashMap, sync::Arc};
 
 use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::Receiver;
 use uuid::Uuid;
 
@@ -8,8 +10,11 @@ use crate::{
     constants::{GAME_START_COUNTDOWN_SECONDS, MAP_HEIGHT, MAP_WIDTH, MS_PER_TICK},
     curver_ws_actor::CurverAddress,
     debug_ui::DebugUi,
-    game::{player::Player, Clients, Game, GameState, Players},
-    message::{CurverMessageToReceive, CurverMessageToSend, ForwardedMessage, UuidSerde},
+    game::{
+        player::{Player, PlayerUuid},
+        Clients, Game, GameState, Players,
+    },
+    message::{CurverMessageToReceive, CurverMessageToSend, ForwardedMessage},
 };
 
 pub struct Room {
@@ -127,32 +132,35 @@ impl Room {
     }
 
     // --- Message Handling ---
-    fn join_room_and_notify_all(&mut self, user_id: Uuid, address: CurverAddress) {
+    fn join_room_and_notify_all(&mut self, user_id: PlayerUuid, address: CurverAddress) {
         self.add_client(user_id, address);
         self.spawn_player(user_id);
 
         self.send_update_to_all();
     }
 
-    fn rotate_player(&mut self, user_id: Uuid, angle_unit_vector_x: f32, angle_unit_vector_y: f32) {
+    fn rotate_player(
+        &mut self,
+        user_id: PlayerUuid,
+        angle_unit_vector_x: f32,
+        angle_unit_vector_y: f32,
+    ) {
         if let Some(player) = self.players.write().get_mut(&user_id) {
             player.angle_unit_vector_x = angle_unit_vector_x;
             player.angle_unit_vector_y = angle_unit_vector_y;
         }
     }
 
-    fn leave_room_and_notify_all(&mut self, user_id: Uuid) {
+    fn leave_room_and_notify_all(&mut self, user_id: PlayerUuid) {
         self.remove_client(user_id);
 
-        self.send_message_to_all(CurverMessageToSend::UserEliminated {
-            user_id: UuidSerde(user_id),
-        })
+        self.send_message_to_all(CurverMessageToSend::UserEliminated { user_id })
     }
 
     // --- Player Handling ---
-    fn spawn_player(&mut self, player_id: Uuid) {
+    fn spawn_player(&mut self, player_id: PlayerUuid) {
         let player = Player {
-            id: UuidSerde(player_id),
+            id: player_id,
             x: 0.0,
             y: 0.0,
             angle_unit_vector_x: 0.0,
@@ -211,11 +219,11 @@ impl Room {
     }
 
     // --- Client Handling ---
-    fn add_client(&mut self, user_id: Uuid, address: CurverAddress) {
+    fn add_client(&mut self, user_id: PlayerUuid, address: CurverAddress) {
         self.clients.write().insert(user_id, address);
     }
 
-    fn toggle_ready_for_user_and_notify_all(&mut self, user_id: Uuid, is_ready: bool) {
+    fn toggle_ready_for_user_and_notify_all(&mut self, user_id: PlayerUuid, is_ready: bool) {
         if let Some(player) = self.players.write().get_mut(&user_id) {
             player.is_ready = is_ready;
         }
@@ -241,11 +249,49 @@ impl Room {
         true
     }
 
-    fn remove_client(&mut self, user_id: Uuid) {
+    fn remove_client(&mut self, user_id: PlayerUuid) {
         self.clients.write().remove(&user_id);
     }
 
     fn check_if_clients_empty(&self) -> bool {
         self.clients.read().is_empty()
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Hash, Eq, Copy)]
+pub struct RoomUuid(pub Uuid);
+
+impl RoomUuid {
+    pub fn new() -> RoomUuid {
+        RoomUuid(Uuid::new_v4())
+    }
+
+    pub fn get_uuid(&self) -> Uuid {
+        self.0
+    }
+}
+
+impl Serialize for RoomUuid {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        serializer.serialize_str(&self.0.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for RoomUuid {
+    fn deserialize<D>(deserializer: D) -> Result<RoomUuid, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(RoomUuid(Uuid::parse_str(&s).unwrap()))
+    }
+}
+
+impl fmt::Display for RoomUuid {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0.to_string())
     }
 }

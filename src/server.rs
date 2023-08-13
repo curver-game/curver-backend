@@ -2,20 +2,19 @@ use std::{collections::HashMap, sync::Arc};
 
 use parking_lot::RwLock;
 use tokio::sync::mpsc::{self, Receiver, Sender};
-use uuid::Uuid;
 
 use crate::{
     curver_error::ServerError,
     curver_ws_actor::CurverAddress,
     debug_ui::DebugUi,
-    message::{CurverMessageToReceive, CurverMessageToSend, ForwardedMessage, UuidSerde},
-    room::Room,
+    game::player::PlayerUuid,
+    message::{CurverMessageToReceive, CurverMessageToSend, ForwardedMessage},
+    room::{Room, RoomUuid},
 };
 
 pub struct ServerHandler {
-    room_message_transmitters: Arc<RwLock<HashMap<Uuid, Sender<ForwardedMessage>>>>,
-    /// Maps user_id to room_id
-    room_map: HashMap<Uuid, Uuid>,
+    room_message_transmitters: Arc<RwLock<HashMap<RoomUuid, Sender<ForwardedMessage>>>>,
+    room_map: HashMap<PlayerUuid, RoomUuid>,
     internal_message_receiver: Receiver<ForwardedMessage>,
 
     debug_ui: DebugUi,
@@ -51,13 +50,13 @@ impl ServerHandler {
                         forwarded_message
                             .address
                             .do_send(CurverMessageToSend::JoinedRoom {
-                                room_id: UuidSerde(room_id),
-                                user_id: UuidSerde(forwarded_message.user_id),
+                                room_id,
+                                user_id: forwarded_message.user_id,
                             });
                     }
 
                     CurverMessageToReceive::JoinRoom { room_id } => {
-                        if !self.check_if_room_exists(room_id.get_uuid()) {
+                        if !self.check_if_room_exists(room_id) {
                             forwarded_message
                                 .address
                                 .do_send(CurverMessageToSend::JoinRoomError {
@@ -68,7 +67,7 @@ impl ServerHandler {
                         }
 
                         self.join_room_and_forward_message(
-                            room_id.get_uuid(),
+                            room_id,
                             forwarded_message.user_id,
                             forwarded_message.address.clone(),
                         );
@@ -76,8 +75,8 @@ impl ServerHandler {
                         forwarded_message
                             .address
                             .do_send(CurverMessageToSend::JoinedRoom {
-                                room_id: UuidSerde(room_id.get_uuid()),
-                                user_id: UuidSerde(forwarded_message.user_id),
+                                room_id,
+                                user_id: forwarded_message.user_id,
                             });
                     }
 
@@ -125,8 +124,8 @@ impl ServerHandler {
     }
 
     // --- Room Handling ---
-    fn create_room(&mut self) -> Uuid {
-        let room_id = Uuid::new_v4();
+    fn create_room(&mut self) -> RoomUuid {
+        let room_id = RoomUuid::new();
         let (room_message_transmitter, room_message_receiver) = mpsc::channel(100);
         let room_message_transmitters_clone = self.room_message_transmitters.clone();
 
@@ -147,8 +146,8 @@ impl ServerHandler {
 
     fn join_room_and_forward_message(
         &mut self,
-        room_id: Uuid,
-        user_id: Uuid,
+        room_id: RoomUuid,
+        user_id: PlayerUuid,
         address: CurverAddress,
     ) {
         self.room_map.insert(user_id, room_id);
@@ -159,14 +158,12 @@ impl ServerHandler {
             ForwardedMessage {
                 user_id,
                 address,
-                message: CurverMessageToReceive::JoinRoom {
-                    room_id: UuidSerde(room_id),
-                },
+                message: CurverMessageToReceive::JoinRoom { room_id },
             },
         );
     }
 
-    fn leave_room_and_forward_message(&mut self, user_id: Uuid, address: CurverAddress) {
+    fn leave_room_and_forward_message(&mut self, user_id: PlayerUuid, address: CurverAddress) {
         self.send_message_to_room_by_user_id(
             user_id,
             ForwardedMessage {
@@ -180,12 +177,12 @@ impl ServerHandler {
         self.debug_ui.draw_rooms(self.room_map.clone());
     }
 
-    fn check_if_room_exists(&self, room_id: Uuid) -> bool {
+    fn check_if_room_exists(&self, room_id: RoomUuid) -> bool {
         self.room_message_transmitters.read().contains_key(&room_id)
     }
 
     //  --- Message Forwarding ---
-    fn send_message_to_room_by_user_id(&mut self, user_id: Uuid, message: ForwardedMessage) {
+    fn send_message_to_room_by_user_id(&mut self, user_id: PlayerUuid, message: ForwardedMessage) {
         if let Some(room_id) = self.room_map.get(&user_id) {
             self.send_message_to_room(*room_id, message);
         } else {
@@ -193,7 +190,7 @@ impl ServerHandler {
         }
     }
 
-    fn send_message_to_room(&self, room_id: Uuid, message: ForwardedMessage) {
+    fn send_message_to_room(&self, room_id: RoomUuid, message: ForwardedMessage) {
         let transmitter_lock = self.room_message_transmitters.read();
 
         if let Some(transmitter) = transmitter_lock.get(&room_id) {
@@ -204,7 +201,7 @@ impl ServerHandler {
     }
 
     // --- Message Transmitter ---
-    fn add_room_transmitter(&mut self, room_id: Uuid, transmitter: Sender<ForwardedMessage>) {
+    fn add_room_transmitter(&mut self, room_id: RoomUuid, transmitter: Sender<ForwardedMessage>) {
         let mut transmitter_lock = self.room_message_transmitters.write();
         transmitter_lock.insert(room_id, transmitter);
     }

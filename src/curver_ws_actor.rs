@@ -3,10 +3,13 @@ use actix_web_actors::ws::{self, Message, ProtocolError, WebsocketContext};
 use tokio::sync::mpsc::Sender;
 use uuid::Uuid;
 
-use crate::message::{CurverMessageToReceive, CurverMessageToSend, ForwardedMessage};
+use crate::{
+    game::player::PlayerUuid,
+    message::{CurverMessageToReceive, CurverMessageToSend, ForwardedMessage},
+};
 
 pub struct CurverWebSocketActor {
-    pub id: Uuid,
+    pub id: PlayerUuid,
     pub internal_message_transmitter: Sender<ForwardedMessage>,
 }
 

@@ -9,11 +9,11 @@ use ratatui::{
     },
     Terminal,
 };
-use uuid::Uuid;
 
 use crate::{
     constants::{MAP_HEIGHT, MAP_WIDTH},
-    game::{Game, GameOutcome},
+    game::{player::PlayerUuid, Game, GameOutcome},
+    room::RoomUuid,
 };
 
 pub struct DebugUi {
@@ -99,11 +99,11 @@ impl DebugUi {
         });
     }
 
-    pub fn draw_rooms(&mut self, room_map: HashMap<Uuid, Uuid>) {
+    pub fn draw_rooms(&mut self, room_map: HashMap<PlayerUuid, RoomUuid>) {
         self.terminal.draw(|f| {
             let size = f.size();
 
-            let rooms: HashMap<Uuid, Vec<Uuid>> =
+            let rooms: HashMap<RoomUuid, Vec<PlayerUuid>> =
                 room_map
                     .iter()
                     .fold(HashMap::new(), |mut acc, (user_id, room_id)| {
