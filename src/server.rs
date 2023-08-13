@@ -96,7 +96,7 @@ impl ServerHandler {
                         angle_unit_vector_x,
                         angle_unit_vector_y,
                     } => {
-                        self.send_message_to_room(
+                        self.send_message_to_room_by_user_id(
                             forwarded_message.user_id,
                             ForwardedMessage {
                                 user_id: forwarded_message.user_id,
