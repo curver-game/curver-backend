@@ -47,6 +47,8 @@ pub enum CurverMessageToSend {
         #[serde(rename = "userId")]
         user_id: UuidSerde,
     },
+    #[serde(rename = "faultyMessage")]
+    FaultyMessage { message: String },
 }
 
 #[derive(Debug, Message, Serialize, Deserialize, PartialEq)]

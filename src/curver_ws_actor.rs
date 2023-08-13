@@ -30,21 +30,19 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for CurverWebSocketAc
         ctx: &mut Self::Context,
     ) {
         if let Ok(Message::Text(text)) = msg {
-            let message_serialized = serde_json::from_str::<CurverMessageToReceive>(&text).unwrap();
-            match message_serialized {
-                CurverMessageToReceive::Rotate { .. } => {
-                    // Rotate will be handled by the room message handler
-                }
-                _ => {
-                    // Rest of the messages can be sent directly to the internal message handler
-                    self.internal_message_transmitter
-                        .try_send(ForwardedMessage {
-                            message: message_serialized,
-                            user_id: self.id,
-                            address: ctx.address(),
-                        })
-                        .unwrap();
-                }
+            let message_serialized = serde_json::from_str::<CurverMessageToReceive>(&text);
+
+            if let Ok(message_serialized) = message_serialized {
+                self.internal_message_transmitter
+                    .try_send(ForwardedMessage {
+                        message: message_serialized,
+                        user_id: self.id,
+                        address: ctx.address(),
+                    });
+            } else {
+                ctx.address().do_send(CurverMessageToSend::FaultyMessage {
+                    message: text.to_string(),
+                });
             }
         }
     }
