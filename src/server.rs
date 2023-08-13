@@ -39,6 +39,12 @@ impl ServerHandler {
                             .do_send(CurverMessageToSend::CreatedRoom {
                                 room_id: UuidSerde(room_id),
                             });
+
+                        self.join_room_and_forward_message(
+                            room_id,
+                            forwarded_message.user_id,
+                            forwarded_message.address.clone(),
+                        );
                     }
 
                     CurverMessageToReceive::JoinRoom { room_id } => {
