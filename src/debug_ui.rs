@@ -5,7 +5,7 @@ use ratatui::{
     style::{Color, Style},
     widgets::{
         canvas::{Canvas, Line},
-        Block, Borders, Clear,
+        Block, Borders
     },
     Terminal,
 };
@@ -17,22 +17,30 @@ use crate::{
 };
 
 pub struct DebugUi {
-    terminal: Terminal<CrosstermBackend<Stdout>>,
+    terminal: Option<Terminal<CrosstermBackend<Stdout>>,>
 }
 
 const MAP_PERCENTAGE_WIDTH: f64 = 0.6;
+const RUN_DEBUG_UI: bool = false;
 
 impl DebugUi {
     pub fn new() -> Self {
+        if !RUN_DEBUG_UI {
+            return Self { terminal: None };
+        }
         let stdout = std::io::stdout();
         let backend = CrosstermBackend::new(stdout);
         let terminal = Terminal::new(backend).unwrap();
 
-        Self { terminal }
+        Self { terminal: Some(terminal) }
     }
 
     pub fn draw_game(&mut self, game: &Game) {
-        self.terminal.draw(|f| {
+        if !RUN_DEBUG_UI {
+            return;
+        }
+
+        self.terminal.as_mut().unwrap().draw(|f| {
             let size = f.size();
 
             let canvas = Canvas::default()
@@ -72,7 +80,11 @@ impl DebugUi {
     }
 
     pub fn display_outcome(&mut self, outcome: GameOutcome) {
-        self.terminal.draw(|f| {
+        if !RUN_DEBUG_UI {
+            return;
+        }
+
+        self.terminal.as_mut().unwrap().draw(|f| {
             let size = f.size();
 
             // Display winner Uuid in the middle of the screen in a fancy widget
@@ -100,7 +112,11 @@ impl DebugUi {
     }
 
     pub fn draw_rooms(&mut self, room_map: HashMap<PlayerUuid, RoomUuid>) {
-        self.terminal.draw(|f| {
+        if !RUN_DEBUG_UI {
+            return;
+        }
+
+        self.terminal.as_mut().unwrap().draw(|f| {
             let size = f.size();
 
             let rooms: HashMap<RoomUuid, Vec<PlayerUuid>> =
@@ -172,11 +188,19 @@ impl DebugUi {
     }
 
     pub fn clear(&mut self) {
-        self.terminal.clear();
+        if !RUN_DEBUG_UI {
+            return;
+        }
+
+        self.terminal.as_mut().unwrap().clear();
     }
 
     pub fn clear_game(&mut self) {
-        self.terminal.draw(|f| {
+        if !RUN_DEBUG_UI {
+            return;
+        }
+
+        self.terminal.as_mut().unwrap().draw(|f| {
             let size = f.size();
 
             let width = (size.width as f64 * MAP_PERCENTAGE_WIDTH) as u16;
