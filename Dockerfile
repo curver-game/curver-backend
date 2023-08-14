@@ -1,4 +1,4 @@
-FROM ekidd/rust-musl-builder:latest as builder
+FROM rust:1.71-slim-buster as builder
 
 RUN USER=root cargo new curver-backend
 WORKDIR ./curver-backend
@@ -9,27 +9,26 @@ RUN rm src/*.rs
 
 ADD . ./
 
-RUN rm ./target/x86_64-unknown-linux-musl/release/deps/curver-backend*
 RUN cargo build --release --locked
 
 
-FROM alpine:latest
-
+FROM debian:buster-slim
 ARG APP=/usr/src/app
+
+RUN apt-get update \
+    && apt-get install -y ca-certificates tzdata \
+    && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 8080
 
 ENV TZ=Etc/UTC \
     APP_USER=appuser
 
-RUN addgroup -S $APP_USER \
-    && adduser -S -g $APP_USER $APP_USER
+RUN groupadd $APP_USER \
+    && useradd -g $APP_USER $APP_USER \
+    && mkdir -p ${APP}
 
-RUN apk update \
-    && apk add --no-cache ca-certificates tzdata \
-    && rm -rf /var/cache/apk/*
-
-COPY --from=builder /home/rust/src/curver-backend/target/x86_64-unknown-linux-musl/release/curver-backend ${APP}/curver-backend
+COPY --from=builder /curver-backend/target/release/curver-backend ${APP}/curver-backend
 
 RUN chown -R $APP_USER:$APP_USER ${APP}
 
