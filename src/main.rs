@@ -1,33 +1,13 @@
-use actix_web::{web, App, Error, HttpRequest, HttpResponse, HttpServer};
-use actix_web_actors::ws;
-use clap::Parser;
-use curver_backend::{
-    config::Config, curver_ws_actor::CurverWebSocketActor, game::player::PlayerUuid,
-    message::ForwardedMessage,
+use actix_web::{
+    web::{self, ServiceConfig},
+    Error, HttpRequest, HttpResponse,
 };
+use actix_web_actors::ws;
+use curver_backend::{
+    curver_ws_actor::CurverWebSocketActor, game::player::PlayerUuid, message::ForwardedMessage,
+};
+use shuttle_actix_web::ShuttleActixWeb;
 use tokio::sync::mpsc::{self, Sender};
-
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    let config = Config::parse();
-
-    let (internal_message_transmitter, internal_message_receiver) =
-        mpsc::channel::<ForwardedMessage>(100);
-
-    let server_handler = curver_backend::server::ServerHandler::new(internal_message_receiver);
-    tokio::spawn(async move { server_handler.message_handler().await });
-
-    let app_state = web::Data::new(AppState {
-        internal_message_transmitter,
-    });
-
-    let app_generator = move || App::new().service(health).service(web_socket).app_data(app_state.clone());
-
-    HttpServer::new(app_generator)
-        .bind((config.address, config.port))?
-        .run()
-        .await
-}
 
 #[actix_web::get("/health")]
 async fn health() -> HttpResponse {
@@ -52,4 +32,25 @@ async fn web_socket(
 
 struct AppState {
     internal_message_transmitter: Sender<ForwardedMessage>,
+}
+
+#[shuttle_runtime::main]
+async fn main() -> ShuttleActixWeb<impl FnOnce(&mut ServiceConfig) + Send + Clone + 'static> {
+    let (internal_message_transmitter, internal_message_receiver) =
+        mpsc::channel::<ForwardedMessage>(100);
+
+    let server_handler = curver_backend::server::ServerHandler::new(internal_message_receiver);
+    tokio::spawn(async move { server_handler.message_handler().await });
+
+    let app_state = web::Data::new(AppState {
+        internal_message_transmitter,
+    });
+
+    let service_config = move |cfg: &mut ServiceConfig| {
+        cfg.app_data(app_state.clone())
+            .service(health)
+            .service(web_socket);
+    };
+
+    Ok(service_config.into())
 }

@@ -19,3 +19,5 @@ uuid = { version = "1.4.1", features = ["v4", "fast-rng", "macro-diagnostics"] }
 rand = "0.8.5"
 ratatui = { version = "0.22.0", features = ["all-widgets"] }
 clap = { version = "4.3.21", features = ["derive"] }
+shuttle-runtime = "0.23.0"
+shuttle-actix-web = "0.23.0"
