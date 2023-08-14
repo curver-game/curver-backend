@@ -21,7 +21,7 @@ async fn main() -> std::io::Result<()> {
         internal_message_transmitter,
     });
 
-    let app_generator = move || App::new().service(index).app_data(app_state.clone());
+    let app_generator = move || App::new().service(health).service(web_socket).app_data(app_state.clone());
 
     HttpServer::new(app_generator)
         .bind((config.address, config.port))?
@@ -29,8 +29,13 @@ async fn main() -> std::io::Result<()> {
         .await
 }
 
+#[actix_web::get("/health")]
+async fn health() -> HttpResponse {
+    HttpResponse::Ok().finish()
+}
+
 #[actix_web::get("/ws")]
-async fn index(
+async fn web_socket(
     req: HttpRequest,
     stream: web::Payload,
     app_state: web::Data<AppState>,
