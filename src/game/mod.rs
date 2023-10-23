@@ -83,7 +83,7 @@ impl Game {
                 let winner = self.players.read().keys().next().cloned()?;
                 Some(GameOutcome::Winner { user_id: winner })
             }
-            _ => return None,
+            _ => None,
         };
 
         match outcome.clone() {
