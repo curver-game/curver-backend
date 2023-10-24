@@ -45,7 +45,11 @@ pub enum CurverMessageToSend {
     #[serde(rename = "syncPaths")]
     SyncPaths { paths: HashMap<PlayerUuid, Path> },
     #[serde(rename = "gameEnded")]
-    GameEnded { outcome: GameOutcome },
+    GameEnded {
+        outcome: GameOutcome,
+        #[serde(rename = "scoreBoard")]
+        score_board: HashMap<PlayerUuid, u32>,
+    },
     #[serde(rename = "userEliminated")]
     UserEliminated {
         #[serde(rename = "userId")]

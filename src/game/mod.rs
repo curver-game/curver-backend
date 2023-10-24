@@ -7,7 +7,9 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    constants::TICK_COUNT_TO_SYNC, curver_ws_actor::CurverAddress, message::CurverMessageToSend,
+    constants::{PLAYER_GAINED_POINTS_PER_TICK, TICK_COUNT_TO_SYNC},
+    curver_ws_actor::CurverAddress,
+    message::CurverMessageToSend,
 };
 
 use self::{
@@ -24,6 +26,7 @@ pub struct Game {
 
     pub clients: Arc<RwLock<Clients>>,
     pub players: Arc<RwLock<Players>>,
+    pub score_board: Arc<RwLock<HashMap<PlayerUuid, u32>>>,
 
     tick_count: u32,
 }
@@ -33,6 +36,7 @@ impl Game {
         state: Arc<RwLock<GameState>>,
         clients: Arc<RwLock<Clients>>,
         players: Arc<RwLock<Players>>,
+        score_board: Arc<RwLock<HashMap<PlayerUuid, u32>>>,
     ) -> Game {
         Game {
             state,
@@ -40,6 +44,7 @@ impl Game {
             clients,
             players,
             tick_count: 0,
+            score_board,
         }
     }
 
@@ -74,6 +79,7 @@ impl Game {
         });
 
         self.send_update_to_all();
+        self.update_score_board();
 
         let remaining_player_count = self.players.read().len();
 
@@ -88,7 +94,10 @@ impl Game {
 
         match outcome.clone() {
             Some(outcome) => {
-                self.send_message_to_all(CurverMessageToSend::GameEnded { outcome });
+                self.send_message_to_all(CurverMessageToSend::GameEnded {
+                    outcome,
+                    score_board: self.score_board.read().clone(),
+                });
 
                 self.reset_all_players();
                 *self.state.write() = GameState::Waiting;
@@ -104,6 +113,22 @@ impl Game {
         self.tick_count += 1;
 
         outcome
+    }
+
+    // --- Scoreboard ---
+    fn update_score_board(&mut self) {
+        for player in self.players.read().values() {
+            let score = self
+                .score_board
+                .read()
+                .get(&player.id)
+                .cloned()
+                .unwrap_or(0);
+
+            self.score_board
+                .write()
+                .insert(player.id, score + PLAYER_GAINED_POINTS_PER_TICK);
+        }
     }
 
     // --- Player Handling ---

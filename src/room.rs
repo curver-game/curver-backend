@@ -23,8 +23,8 @@ pub struct Room {
 
     clients: Arc<RwLock<Clients>>,
     players: Arc<RwLock<Players>>,
-
     game_state: Arc<RwLock<GameState>>,
+    score_board: Arc<RwLock<HashMap<PlayerUuid, u32>>>,
 }
 
 impl Room {
@@ -37,6 +37,7 @@ impl Room {
             clients: clients.clone(),
             players: players.clone(),
             game_state: Arc::new(RwLock::new(GameState::Waiting)),
+            score_board: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -113,6 +114,7 @@ impl Room {
             self.game_state.clone(),
             self.clients.clone(),
             self.players.clone(),
+            self.score_board.clone(),
         );
 
         tokio::spawn(async move {
